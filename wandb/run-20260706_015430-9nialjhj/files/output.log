@@ -1,0 +1,121 @@
+Rank: 0
+Config: {'flux_path': 'black-forest-labs/FLUX.1-Kontext-dev', 'dtype': 'bfloat16', 'model': {'union_cond_attn': True, 'add_cond_attn': False, 'latent_lora': False, 'use_sep': False, 'use_type_embedding': True}, 'train': {'batch_size': 1, 'accumulate_grad_batches': 4, 'dataloader_workers': 2, 'save_interval': 1000, 'sample_interval': 1000, 'max_steps': 100000, 'gradient_checkpointing': True, 'save_path': 'runs/train_moe_lora+type_emb', 'condition_type': 'edit', 'dataset': {'type': 'omini', 'json_path': '/data/datasets/OmniEdit-mini/train.json', 'root_path': '/data/datasets', 'condition_size': 512, 'target_size': 512, 'image_size': 512, 'padding': 8, 'drop_text_prob': 0.1, 'drop_image_prob': 0.1, 'specific_task': None}, 'wandb': {'project': 'Edit'}, 'lora_config': {'r': 32, 'lora_alpha': 32, 'init_lora_weights': 'gaussian', 'target_modules': '(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)', 'num_experts': 4, 'expert_rank': 32, 'expert_alpha': 32, 'top_k': 1, 'route_input_dim': 768}, 'optimizer': {'type': 'Prodigy', 'params': {'lr': 1, 'use_bias_correction': True, 'safeguard_warmup': True, 'weight_decay': 0.01}}}}
+
+OminiDataset loaded 33704 samples from /data/datasets/OmniEdit-mini/train.json
+  addition: 12642 (37.5%)
+  removal: 4214 (12.5%)
+  swap: 8424 (25.0%)
+  attribute_modification: 4212 (12.5%)
+  env: 4212 (12.5%)
+Dataset length: 33704
+Loading pipeline components...:   0%|                                                                                                 | 0/7 [00:00<?, ?it/s]You set `add_prefix_space`. The tokenizer needs to be converted from the slow tokenizers
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:08<00:00,  4.02s/it]
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 3/3 [00:19<00:00,  6.58s/it]
+Loading pipeline components...: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 7/7 [00:28<00:00,  4.13s/it]
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/2
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 2 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1]
+Using decoupled weight decay
+┏━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃[1;35m [0m[1;35m [0m[1;35m [0m┃[1;35m [0m[1;35mName          [0m[1;35m [0m┃[1;35m [0m[1;35mType                  [0m[1;35m [0m┃[1;35m [0m[1;35mParams[0m[1;35m [0m┃[1;35m [0m[1;35mMode [0m[1;35m [0m┃[1;35m [0m[1;35mFLOPs[0m[1;35m [0m┃
+┡━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│[2m [0m[2m0[0m[2m [0m│ transformer    │ FluxTransformer2DModel │ 12.1 B │ train │     0 │
+│[2m [0m[2m1[0m[2m [0m│ text_encoder   │ CLIPTextModel          │  123 M │ eval  │     0 │
+│[2m [0m[2m2[0m[2m [0m│ text_encoder_2 │ T5EncoderModel         │  4.8 B │ eval  │     0 │
+└───┴────────────────┴────────────────────────┴────────┴───────┴───────┘
+[1mTrainable params[0m: 87.4 M
+[1mNon-trainable params[0m: 16.9 B
+[1mTotal params[0m: 17.0 B
+[1mTotal estimated model params size (MB)[0m: 68.0 K
+[1mModules in train mode[0m: 5451
+[1mModules in eval mode[0m: 615
+[1mTotal FLOPs[0m: 0
+/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py:534: Found 615 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Epoch: 0, Steps: 10, Batch: 9, Loss: 0.1155, Gradient size: 0.0008, Max gradient size: 0.0121, Training time: 1528.3 ms, Data time: 91.9 ms
+Epoch: 0, Steps: 20, Batch: 19, Loss: 0.2050, Gradient size: 0.0008, Max gradient size: 0.0287, Training time: 1723.2 ms, Data time: 95.9 ms
+Epoch: 0, Steps: 30, Batch: 29, Loss: 0.2145, Gradient size: 0.0005, Max gradient size: 0.0085, Training time: 1642.5 ms, Data time: 102.1 ms
+Epoch: 0, Steps: 40, Batch: 39, Loss: 0.2365, Gradient size: 0.0007, Max gradient size: 0.0128, Training time: 1806.0 ms, Data time: 99.6 ms
+Epoch: 0, Steps: 50, Batch: 49, Loss: 0.2600, Gradient size: 0.0006, Max gradient size: 0.0112, Training time: 1722.7 ms, Data time: 99.5 ms
+Epoch: 0, Steps: 60, Batch: 59, Loss: 0.2613, Gradient size: 0.0006, Max gradient size: 0.0160, Training time: 1870.4 ms, Data time: 97.6 ms
+Epoch: 0, Steps: 70, Batch: 69, Loss: 0.2528, Gradient size: 0.0004, Max gradient size: 0.0166, Training time: 1727.0 ms, Data time: 96.2 ms
+Epoch: 0, Steps: 80, Batch: 79, Loss: 0.2625, Gradient size: 0.0015, Max gradient size: 0.0249, Training time: 1889.0 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 90, Batch: 89, Loss: 0.2637, Gradient size: 0.0005, Max gradient size: 0.0081, Training time: 1740.0 ms, Data time: 104.4 ms
+Epoch: 0, Steps: 100, Batch: 99, Loss: 0.2316, Gradient size: 0.0008, Max gradient size: 0.0134, Training time: 1922.4 ms, Data time: 106.2 ms
+Epoch: 0, Steps: 110, Batch: 109, Loss: 0.2557, Gradient size: 0.0026, Max gradient size: 0.0552, Training time: 1770.3 ms, Data time: 101.4 ms
+Epoch: 0, Steps: 120, Batch: 119, Loss: 0.2581, Gradient size: 0.0009, Max gradient size: 0.0222, Training time: 1917.0 ms, Data time: 102.1 ms
+Epoch: 0, Steps: 130, Batch: 129, Loss: 0.2350, Gradient size: 0.0009, Max gradient size: 0.0113, Training time: 1778.7 ms, Data time: 102.8 ms
+Epoch: 0, Steps: 140, Batch: 139, Loss: 0.2328, Gradient size: 0.0010, Max gradient size: 0.0187, Training time: 1920.2 ms, Data time: 100.9 ms
+Epoch: 0, Steps: 150, Batch: 149, Loss: 0.2348, Gradient size: 0.0007, Max gradient size: 0.0122, Training time: 1781.2 ms, Data time: 100.7 ms
+Epoch: 0, Steps: 160, Batch: 159, Loss: 0.2259, Gradient size: 0.0010, Max gradient size: 0.0276, Training time: 1920.5 ms, Data time: 101.5 ms
+Epoch: 0, Steps: 170, Batch: 169, Loss: 0.2506, Gradient size: 0.0005, Max gradient size: 0.0096, Training time: 1770.2 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 180, Batch: 179, Loss: 0.2615, Gradient size: 0.0007, Max gradient size: 0.0231, Training time: 1926.4 ms, Data time: 100.5 ms
+Epoch: 0, Steps: 190, Batch: 189, Loss: 0.2722, Gradient size: 0.0004, Max gradient size: 0.0112, Training time: 1780.0 ms, Data time: 99.3 ms
+Epoch: 0, Steps: 200, Batch: 199, Loss: 0.2470, Gradient size: 0.0007, Max gradient size: 0.0130, Training time: 1923.9 ms, Data time: 100.4 ms
+Epoch: 0, Steps: 210, Batch: 209, Loss: 0.2443, Gradient size: 0.0004, Max gradient size: 0.0076, Training time: 1780.3 ms, Data time: 100.1 ms
+Epoch: 0, Steps: 220, Batch: 219, Loss: 0.2593, Gradient size: 0.0006, Max gradient size: 0.0137, Training time: 1912.4 ms, Data time: 102.4 ms
+Epoch: 0, Steps: 230, Batch: 229, Loss: 0.2604, Gradient size: 0.0006, Max gradient size: 0.0137, Training time: 1762.0 ms, Data time: 104.0 ms
+Epoch: 0, Steps: 240, Batch: 239, Loss: 0.2427, Gradient size: 0.0007, Max gradient size: 0.0096, Training time: 1918.0 ms, Data time: 103.3 ms
+Epoch: 0, Steps: 250, Batch: 249, Loss: 0.2711, Gradient size: 0.0004, Max gradient size: 0.0109, Training time: 1742.7 ms, Data time: 102.9 ms
+Epoch: 0, Steps: 260, Batch: 259, Loss: 0.2437, Gradient size: 0.0004, Max gradient size: 0.0082, Training time: 1886.7 ms, Data time: 102.4 ms
+Epoch: 0, Steps: 270, Batch: 269, Loss: 0.2610, Gradient size: 0.0004, Max gradient size: 0.0079, Training time: 1753.0 ms, Data time: 103.4 ms
+Epoch: 0, Steps: 280, Batch: 279, Loss: 0.2640, Gradient size: 0.0006, Max gradient size: 0.0181, Training time: 1915.0 ms, Data time: 101.7 ms
+Epoch: 0, Steps: 290, Batch: 289, Loss: 0.2637, Gradient size: 0.0003, Max gradient size: 0.0046, Training time: 1770.7 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 300, Batch: 299, Loss: 0.2479, Gradient size: 0.0003, Max gradient size: 0.0052, Training time: 1871.4 ms, Data time: 103.3 ms
+Epoch: 0, Steps: 310, Batch: 309, Loss: 0.2472, Gradient size: 0.0009, Max gradient size: 0.0117, Training time: 1781.7 ms, Data time: 105.3 ms
+Epoch: 0, Steps: 320, Batch: 319, Loss: 0.2346, Gradient size: 0.0003, Max gradient size: 0.0076, Training time: 1902.0 ms, Data time: 104.6 ms
+Epoch: 0, Steps: 330, Batch: 329, Loss: 0.2416, Gradient size: 0.0006, Max gradient size: 0.0122, Training time: 1770.4 ms, Data time: 107.4 ms
+Epoch: 0, Steps: 340, Batch: 339, Loss: 0.2446, Gradient size: 0.0004, Max gradient size: 0.0143, Training time: 2035.3 ms, Data time: 104.5 ms
+Epoch: 0, Steps: 350, Batch: 349, Loss: 0.2724, Gradient size: 0.0003, Max gradient size: 0.0104, Training time: 1905.6 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 360, Batch: 359, Loss: 0.2490, Gradient size: 0.0003, Max gradient size: 0.0058, Training time: 2068.3 ms, Data time: 98.3 ms
+Epoch: 0, Steps: 370, Batch: 369, Loss: 0.2376, Gradient size: 0.0010, Max gradient size: 0.0164, Training time: 1896.6 ms, Data time: 100.4 ms
+Epoch: 0, Steps: 380, Batch: 379, Loss: 0.2341, Gradient size: 0.0004, Max gradient size: 0.0066, Training time: 1907.9 ms, Data time: 101.5 ms
+Epoch: 0, Steps: 390, Batch: 389, Loss: 0.2295, Gradient size: 0.0004, Max gradient size: 0.0092, Training time: 1757.2 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 400, Batch: 399, Loss: 0.2146, Gradient size: 0.0003, Max gradient size: 0.0072, Training time: 1916.1 ms, Data time: 101.2 ms
+Epoch: 0, Steps: 410, Batch: 409, Loss: 0.2200, Gradient size: 0.0002, Max gradient size: 0.0045, Training time: 1714.7 ms, Data time: 103.0 ms
+Epoch: 0, Steps: 420, Batch: 419, Loss: 0.2230, Gradient size: 0.0003, Max gradient size: 0.0081, Training time: 1902.4 ms, Data time: 102.9 ms
+Epoch: 0, Steps: 430, Batch: 429, Loss: 0.2234, Gradient size: 0.0002, Max gradient size: 0.0055, Training time: 1773.3 ms, Data time: 103.2 ms
+Epoch: 0, Steps: 440, Batch: 439, Loss: 0.2175, Gradient size: 0.0007, Max gradient size: 0.0223, Training time: 1896.1 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 450, Batch: 449, Loss: 0.2226, Gradient size: 0.0002, Max gradient size: 0.0044, Training time: 1781.9 ms, Data time: 104.1 ms
+Epoch: 0, Steps: 460, Batch: 459, Loss: 0.2308, Gradient size: 0.0003, Max gradient size: 0.0086, Training time: 1916.6 ms, Data time: 102.3 ms
+Epoch: 0, Steps: 470, Batch: 469, Loss: 0.2230, Gradient size: 0.0002, Max gradient size: 0.0063, Training time: 1763.5 ms, Data time: 99.3 ms
+Epoch: 0, Steps: 480, Batch: 479, Loss: 0.2559, Gradient size: 0.0003, Max gradient size: 0.0142, Training time: 1910.2 ms, Data time: 101.7 ms
+Epoch: 0, Steps: 490, Batch: 489, Loss: 0.2380, Gradient size: 0.0002, Max gradient size: 0.0048, Training time: 1779.6 ms, Data time: 103.6 ms
+Epoch: 0, Steps: 500, Batch: 499, Loss: 0.2359, Gradient size: 0.0003, Max gradient size: 0.0090, Training time: 1899.7 ms, Data time: 98.7 ms
+Epoch: 0, Steps: 510, Batch: 509, Loss: 0.2193, Gradient size: 0.0002, Max gradient size: 0.0039, Training time: 1759.9 ms, Data time: 97.4 ms
+Epoch: 0, Steps: 520, Batch: 519, Loss: 0.2164, Gradient size: 0.0002, Max gradient size: 0.0063, Training time: 1914.3 ms, Data time: 101.4 ms
+Epoch: 0, Steps: 530, Batch: 529, Loss: 0.2154, Gradient size: 0.0002, Max gradient size: 0.0062, Training time: 1770.7 ms, Data time: 105.6 ms
+Epoch: 0, Steps: 540, Batch: 539, Loss: 0.2345, Gradient size: 0.0003, Max gradient size: 0.0061, Training time: 1925.8 ms, Data time: 103.9 ms
+Epoch: 0, Steps: 550, Batch: 549, Loss: 0.2442, Gradient size: 0.0002, Max gradient size: 0.0077, Training time: 1769.1 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 560, Batch: 559, Loss: 0.2348, Gradient size: 0.0002, Max gradient size: 0.0046, Training time: 1883.3 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 570, Batch: 569, Loss: 0.2376, Gradient size: 0.0001, Max gradient size: 0.0034, Training time: 1749.2 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 580, Batch: 579, Loss: 0.2207, Gradient size: 0.0002, Max gradient size: 0.0040, Training time: 1911.8 ms, Data time: 104.8 ms
+Epoch: 0, Steps: 590, Batch: 589, Loss: 0.2155, Gradient size: 0.0002, Max gradient size: 0.0049, Training time: 1769.0 ms, Data time: 100.2 ms
+Epoch: 0, Steps: 600, Batch: 599, Loss: 0.2262, Gradient size: 0.0003, Max gradient size: 0.0107, Training time: 1914.7 ms, Data time: 98.5 ms
+Epoch: 0, Steps: 610, Batch: 609, Loss: 0.2497, Gradient size: 0.0004, Max gradient size: 0.0232, Training time: 1730.2 ms, Data time: 102.4 ms
+Epoch: 0, Steps: 620, Batch: 619, Loss: 0.2461, Gradient size: 0.0003, Max gradient size: 0.0052, Training time: 1899.5 ms, Data time: 98.4 ms
+Epoch: 0, Steps: 630, Batch: 629, Loss: 0.2439, Gradient size: 0.0002, Max gradient size: 0.0063, Training time: 1784.2 ms, Data time: 106.2 ms
+Epoch: 0, Steps: 640, Batch: 639, Loss: 0.2346, Gradient size: 0.0002, Max gradient size: 0.0056, Training time: 1913.6 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 650, Batch: 649, Loss: 0.2497, Gradient size: 0.0003, Max gradient size: 0.0064, Training time: 1769.1 ms, Data time: 101.5 ms
+Epoch: 0, Steps: 660, Batch: 659, Loss: 0.2438, Gradient size: 0.0002, Max gradient size: 0.0067, Training time: 1897.4 ms, Data time: 103.1 ms
+Epoch: 0, Steps: 670, Batch: 669, Loss: 0.2475, Gradient size: 0.0003, Max gradient size: 0.0056, Training time: 1770.8 ms, Data time: 101.2 ms
+Epoch: 0, Steps: 680, Batch: 679, Loss: 0.2394, Gradient size: 0.0003, Max gradient size: 0.0114, Training time: 1892.1 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 690, Batch: 689, Loss: 0.2390, Gradient size: 0.0006, Max gradient size: 0.0131, Training time: 1765.0 ms, Data time: 105.5 ms
+Epoch: 0, Steps: 700, Batch: 699, Loss: 0.2361, Gradient size: 0.0003, Max gradient size: 0.0069, Training time: 1897.7 ms, Data time: 107.4 ms
+Epoch: 0, Steps: 710, Batch: 709, Loss: 0.2369, Gradient size: 0.0002, Max gradient size: 0.0056, Training time: 1746.5 ms, Data time: 353.5 ms
+Epoch: 0, Steps: 720, Batch: 719, Loss: 0.2248, Gradient size: 0.0006, Max gradient size: 0.0077, Training time: 2078.2 ms, Data time: 107.3 ms
+Epoch: 0, Steps: 730, Batch: 729, Loss: 0.2265, Gradient size: 0.0002, Max gradient size: 0.0066, Training time: 1877.7 ms, Data time: 101.1 ms
+Epoch: 0, Steps: 740, Batch: 739, Loss: 0.2202, Gradient size: 0.0003, Max gradient size: 0.0166, Training time: 2003.1 ms, Data time: 101.9 ms
+Epoch: 0, Steps: 750, Batch: 749, Loss: 0.2251, Gradient size: 0.0002, Max gradient size: 0.0064, Training time: 1874.5 ms, Data time: 101.6 ms
+Epoch: 0, Steps: 760, Batch: 759, Loss: 0.2198, Gradient size: 0.0002, Max gradient size: 0.0074, Training time: 1893.5 ms, Data time: 104.8 ms
+Epoch: 0, Steps: 770, Batch: 769, Loss: 0.2032, Gradient size: 0.0002, Max gradient size: 0.0046, Training time: 1767.8 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 780, Batch: 779, Loss: 0.1887, Gradient size: 0.0003, Max gradient size: 0.0101, Training time: 1909.2 ms, Data time: 100.4 ms
+Epoch: 0, Steps: 790, Batch: 789, Loss: 0.2178, Gradient size: 0.0002, Max gradient size: 0.0052, Training time: 1761.6 ms, Data time: 104.1 ms
+
+Detected KeyboardInterrupt, attempting graceful shutdown ...

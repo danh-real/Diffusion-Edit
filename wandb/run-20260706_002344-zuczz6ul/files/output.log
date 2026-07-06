@@ -1,0 +1,72 @@
+Rank: 0
+Config: {'flux_path': 'black-forest-labs/FLUX.1-Kontext-dev', 'dtype': 'bfloat16', 'model': {'union_cond_attn': True, 'add_cond_attn': False, 'latent_lora': False, 'use_sep': False, 'use_type_embedding': True}, 'train': {'batch_size': 1, 'accumulate_grad_batches': 4, 'dataloader_workers': 2, 'save_interval': 1000, 'sample_interval': 1000, 'max_steps': 100000, 'gradient_checkpointing': True, 'save_path': 'runs/train_moe_lora+type_emb', 'condition_type': 'edit', 'dataset': {'type': 'omini', 'json_path': '/data/datasets/OmniEdit-mini/train.json', 'root_path': '/data/datasets', 'condition_size': 512, 'target_size': 512, 'image_size': 512, 'padding': 8, 'drop_text_prob': 0.1, 'drop_image_prob': 0.1, 'specific_task': None}, 'wandb': {'project': 'Edit'}, 'lora_config': {'r': 32, 'lora_alpha': 32, 'init_lora_weights': 'gaussian', 'target_modules': '(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)', 'num_experts': 4, 'expert_rank': 32, 'expert_alpha': 32, 'top_k': 1, 'route_input_dim': 768}, 'optimizer': {'type': 'Prodigy', 'params': {'lr': 1, 'use_bias_correction': True, 'safeguard_warmup': True, 'weight_decay': 0.01}}}}
+
+OminiDataset loaded 33704 samples from /data/datasets/OmniEdit-mini/train.json
+  addition: 12642 (37.5%)
+  removal: 4214 (12.5%)
+  swap: 8424 (25.0%)
+  attribute_modification: 4212 (12.5%)
+  env: 4212 (12.5%)
+Dataset length: 33704
+Loading checkpoint shards: 100%|██████████| 2/2 [00:08<00:00,  4.16s/it]it/s]
+Loading pipeline components...:  29%|██▊       | 2/7 [00:08<00:25,  5.02s/it]You set `add_prefix_space`. The tokenizer needs to be converted from the slow tokenizers
+Loading checkpoint shards: 100%|██████████| 3/3 [00:20<00:00,  6.80s/it]s/it]
+Loading pipeline components...: 100%|██████████| 7/7 [00:29<00:00,  4.27s/it]
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/repos/models/flux/src/train/train_moe.py", line 184, in <module>
+    main()
+  File "/data/repos/models/flux/src/train/train_moe.py", line 140, in main
+    trainable_model = OminiModel(
+  File "/data/repos/models/flux/src/train/model.py", line 33, in __init__
+    self.flux_kontext_pipe = FluxKontextPipeline.from_pretrained(flux_fill_id).to(dtype=dtype).to(device)
+  File "/data/repos/models/flux/custom/diffusers/pipelines/pipeline_utils.py", line 569, in to
+    module.to(device, dtype)
+  File "/data/repos/models/flux/custom/diffusers/models/modeling_utils.py", line 1528, in to
+    return super().to(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1355, in to
+    return self._apply(convert)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  [Previous line repeated 1 more time]
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 942, in _apply
+    param_applied = fn(param)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1341, in convert
+    return t.to(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 18.00 MiB. GPU 0 has a total capacity of 47.51 GiB of which 3.56 MiB is free. Process 1532006 has 31.87 GiB memory in use. Process 1532280 has 15.62 GiB memory in use. Of the allocated memory 15.20 GiB is allocated by PyTorch, and 6.14 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/repos/models/flux/src/train/train_moe.py", line 184, in <module>
+    main()
+  File "/data/repos/models/flux/src/train/train_moe.py", line 140, in main
+    trainable_model = OminiModel(
+  File "/data/repos/models/flux/src/train/model.py", line 33, in __init__
+    self.flux_kontext_pipe = FluxKontextPipeline.from_pretrained(flux_fill_id).to(dtype=dtype).to(device)
+  File "/data/repos/models/flux/custom/diffusers/pipelines/pipeline_utils.py", line 569, in to
+    module.to(device, dtype)
+  File "/data/repos/models/flux/custom/diffusers/models/modeling_utils.py", line 1528, in to
+    return super().to(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1355, in to
+    return self._apply(convert)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 915, in _apply
+    module._apply(fn)
+  [Previous line repeated 1 more time]
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 942, in _apply
+    param_applied = fn(param)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1341, in convert
+    return t.to(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 18.00 MiB. GPU 0 has a total capacity of 47.51 GiB of which 3.56 MiB is free. Process 1532006 has 31.87 GiB memory in use. Process 1532280 has 15.62 GiB memory in use. Of the allocated memory 15.20 GiB is allocated by PyTorch, and 6.14 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

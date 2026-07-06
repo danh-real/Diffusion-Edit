@@ -1,0 +1,17 @@
+{"time":"2026-07-06T00:04:18.844862518Z","level":"INFO","msg":"wandb-core"}
+{"time":"2026-07-06T00:04:18.845093562Z","level":"INFO","msg":"stream: starting","core version":"0.27.0"}
+{"time":"2026-07-06T00:04:19.451410418Z","level":"INFO","msg":"stream: created new stream","id":"98jxj4q6"}
+{"time":"2026-07-06T00:04:19.451505347Z","level":"INFO","msg":"handler: started"}
+{"time":"2026-07-06T00:04:19.451611857Z","level":"INFO","msg":"stream: started"}
+{"time":"2026-07-06T00:04:19.451640841Z","level":"INFO","msg":"writer: started","stream_id":"98jxj4q6"}
+{"time":"2026-07-06T00:04:19.451665267Z","level":"INFO","msg":"sender: started"}
+{"time":"2026-07-06T00:04:20.104321585Z","level":"INFO","msg":"filestream: sending request","total_files":1,"console_offset":0,"console_lines":1}
+{"time":"2026-07-06T00:04:20.518794694Z","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-06T00:04:35.10530013Z","level":"INFO","msg":"filestream: sending request","total_files":2,"events_offset":0,"events_lines":2,"console_offset":0,"console_lines":13,"uploaded_len":2}
+{"time":"2026-07-06T00:04:35.399724845Z","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-06T00:04:50.104785921Z","level":"INFO","msg":"filestream: sending request","total_files":2,"events_offset":2,"events_lines":2,"console_offset":11,"console_lines":3}
+{"time":"2026-07-06T00:04:50.383039301Z","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-06T00:05:05.104969993Z","level":"INFO","msg":"filestream: sending request","total_files":1,"events_offset":4,"events_lines":2}
+{"time":"2026-07-06T00:05:05.395911659Z","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-06T00:05:16.608212174Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-07-06T00:05:16.60838005Z","level":"INFO","msg":"filestream: sending request","total_files":2,"console_offset":14,"console_lines":28,"uploaded_len":3,"complete":true,"exit_code":1}

@@ -1,0 +1,41 @@
+{
+  "os": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.10.12",
+  "startedAt": "2026-07-05T23:38:59.063182Z",
+  "program": "-m src.train.train_moe",
+  "email": "thaiduyanh.huynh@student.adelaide.edu.au",
+  "root": "/data/repos/models/flux",
+  "host": "56cc9cdf1094",
+  "executable": "/usr/bin/python",
+  "cpu_count": 32,
+  "cpu_count_logical": 64,
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "gpu_count": 2,
+  "disk": {
+    "/": {
+      "total": "1966737149952",
+      "used": "1124380700672"
+    }
+  },
+  "memory": {
+    "total": "540648525824"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal": "51527024640",
+      "cudaCores": 18176,
+      "architecture": "Ada",
+      "uuid": "GPU-b0dfdd17-9b84-64b4-4f4e-acbf27dbc840"
+    },
+    {
+      "name": "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal": "51527024640",
+      "cudaCores": 18176,
+      "architecture": "Ada",
+      "uuid": "GPU-7a085771-1165-ff8d-fe21-33e2cec9acc8"
+    }
+  ],
+  "cudaVersion": "12.6",
+  "writerId": "i9d9l3dmnxh9mpcflo7ot28zf43jqtno"
+}

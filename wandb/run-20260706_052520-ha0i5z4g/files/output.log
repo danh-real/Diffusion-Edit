@@ -1,0 +1,243 @@
+Rank: 0
+Config: {'flux_path': 'black-forest-labs/FLUX.1-Kontext-dev', 'dtype': 'bfloat16', 'model': {'union_cond_attn': True, 'add_cond_attn': False, 'latent_lora': False, 'use_sep': False, 'use_type_embedding': True}, 'train': {'batch_size': 1, 'accumulate_grad_batches': 4, 'dataloader_workers': 2, 'save_interval': 1000, 'sample_interval': 1000, 'max_steps': 100000, 'gradient_checkpointing': True, 'save_path': 'runs/train_moe_lora+type_emb', 'condition_type': 'edit', 'dataset': {'type': 'any_edit', 'json_path': '/data/datasets/AnyEdit/train.json', 'root_path': '/data/datasets', 'condition_size': 512, 'target_size': 512, 'image_size': 512, 'padding': 8, 'drop_text_prob': 0.1, 'drop_image_prob': 0.1, 'specific_task': None}, 'wandb': {'project': 'Edit'}, 'lora_config': {'r': 32, 'lora_alpha': 32, 'init_lora_weights': 'gaussian', 'target_modules': '(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)', 'num_experts': 4, 'expert_rank': 32, 'expert_alpha': 32, 'top_k': 1, 'route_input_dim': 768}, 'optimizer': {'type': 'Prodigy', 'params': {'lr': 1, 'use_bias_correction': True, 'safeguard_warmup': True, 'weight_decay': 0.01}}}}
+THIS IS AnyEdit!
+\AnyEdit loaded 2485319
+  visual_depth: 55288 (2.2%)
+  tune_transfer: 535346 (21.5%)
+  tone_transfer: 18523 (0.7%)
+  visual_material_change: 21240 (0.9%)
+  visual_material_transfer: 21824 (0.9%)
+  visual_segment: 55288 (2.2%)
+  color_alter: 334253 (13.4%)
+  remove: 102111 (4.1%)
+  counting: 648 (0.0%)
+  visual_reference: 17745 (0.7%)
+  implicit_change: 9867 (0.4%)
+  visual_scribble: 55288 (2.2%)
+  replace: 93463 (3.8%)
+  rotation_change: 16971 (0.7%)
+  action_change: 47160 (1.9%)
+  add: 393768 (15.8%)
+  movement: 7543 (0.3%)
+  textual: 2450 (0.1%)
+  background_change: 411951 (16.6%)
+  resize: 10029 (0.4%)
+  style_change: 27438 (1.1%)
+  visual_sketch: 55288 (2.2%)
+  visual_bbox: 55285 (2.2%)
+  outpainting: 57155 (2.3%)
+  appearance_alter: 79037 (3.2%)
+  relation: 360 (0.0%)
+Dataset length: 2485319
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:08<00:00,  4.02s/it]
+Loading pipeline components...:  57%|██████████████████████████████████████████████████▊                                      | 4/7 [00:08<00:08,  2.89s/it]You set `add_prefix_space`. The tokenizer needs to be converted from the slow tokenizers
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 3/3 [00:19<00:00,  6.65s/it]
+Loading pipeline components...: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 7/7 [00:29<00:00,  4.16s/it]
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/2
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 2 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1]
+Using decoupled weight decay
+┏━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃[1;35m [0m[1;35m [0m[1;35m [0m┃[1;35m [0m[1;35mName          [0m[1;35m [0m┃[1;35m [0m[1;35mType                  [0m[1;35m [0m┃[1;35m [0m[1;35mParams[0m[1;35m [0m┃[1;35m [0m[1;35mMode [0m[1;35m [0m┃[1;35m [0m[1;35mFLOPs[0m[1;35m [0m┃
+┡━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│[2m [0m[2m0[0m[2m [0m│ transformer    │ FluxTransformer2DModel │ 12.1 B │ train │     0 │
+│[2m [0m[2m1[0m[2m [0m│ text_encoder   │ CLIPTextModel          │  123 M │ eval  │     0 │
+│[2m [0m[2m2[0m[2m [0m│ text_encoder_2 │ T5EncoderModel         │  4.8 B │ eval  │     0 │
+└───┴────────────────┴────────────────────────┴────────┴───────┴───────┘
+[1mTrainable params[0m: 87.4 M
+[1mNon-trainable params[0m: 16.9 B
+[1mTotal params[0m: 17.0 B
+[1mTotal estimated model params size (MB)[0m: 68.0 K
+[1mModules in train mode[0m: 5451
+[1mModules in eval mode[0m: 615
+[1mTotal FLOPs[0m: 0
+/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py:534: Found 615 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Epoch: 0, Steps: 10, Batch: 9, Loss: 0.1182, Gradient size: 0.0010, Max gradient size: 0.0175, Training time: 1477.0 ms, Data time: 91.4 ms
+Epoch: 0, Steps: 20, Batch: 19, Loss: 0.2011, Gradient size: 0.0012, Max gradient size: 0.0277, Training time: 1657.6 ms, Data time: 94.4 ms
+Epoch: 0, Steps: 30, Batch: 29, Loss: 0.2527, Gradient size: 0.0010, Max gradient size: 0.0160, Training time: 1572.7 ms, Data time: 97.9 ms
+Epoch: 0, Steps: 40, Batch: 39, Loss: 0.2848, Gradient size: 0.0011, Max gradient size: 0.0173, Training time: 1787.6 ms, Data time: 96.8 ms
+Epoch: 0, Steps: 50, Batch: 49, Loss: 0.3067, Gradient size: 0.0007, Max gradient size: 0.0166, Training time: 1676.4 ms, Data time: 98.5 ms
+Epoch: 0, Steps: 60, Batch: 59, Loss: 0.3026, Gradient size: 0.0011, Max gradient size: 0.0239, Training time: 1831.2 ms, Data time: 100.3 ms
+Epoch: 0, Steps: 70, Batch: 69, Loss: 0.3522, Gradient size: 0.0006, Max gradient size: 0.0166, Training time: 1675.6 ms, Data time: 98.6 ms
+Epoch: 0, Steps: 80, Batch: 79, Loss: 0.3569, Gradient size: 0.0009, Max gradient size: 0.0217, Training time: 1865.8 ms, Data time: 100.1 ms
+Epoch: 0, Steps: 90, Batch: 89, Loss: 0.3567, Gradient size: 0.0013, Max gradient size: 0.0220, Training time: 1729.0 ms, Data time: 105.0 ms
+Epoch: 0, Steps: 100, Batch: 99, Loss: 0.2919, Gradient size: 0.0014, Max gradient size: 0.0255, Training time: 1885.6 ms, Data time: 102.7 ms
+Epoch: 0, Steps: 110, Batch: 109, Loss: 0.3011, Gradient size: 0.0006, Max gradient size: 0.0099, Training time: 1765.4 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 120, Batch: 119, Loss: 0.2875, Gradient size: 0.0010, Max gradient size: 0.0221, Training time: 1920.3 ms, Data time: 102.3 ms
+Epoch: 0, Steps: 130, Batch: 129, Loss: 0.3080, Gradient size: 0.0023, Max gradient size: 0.0306, Training time: 1749.3 ms, Data time: 100.3 ms
+Epoch: 0, Steps: 140, Batch: 139, Loss: 0.3256, Gradient size: 0.0013, Max gradient size: 0.0177, Training time: 1935.4 ms, Data time: 98.9 ms
+Epoch: 0, Steps: 150, Batch: 149, Loss: 0.3292, Gradient size: 0.0013, Max gradient size: 0.0209, Training time: 1775.6 ms, Data time: 99.5 ms
+Epoch: 0, Steps: 160, Batch: 159, Loss: 0.3074, Gradient size: 0.0011, Max gradient size: 0.0217, Training time: 1921.5 ms, Data time: 102.0 ms
+Epoch: 0, Steps: 170, Batch: 169, Loss: 0.3218, Gradient size: 0.0007, Max gradient size: 0.0123, Training time: 1771.8 ms, Data time: 103.5 ms
+Epoch: 0, Steps: 180, Batch: 179, Loss: 0.3599, Gradient size: 0.0012, Max gradient size: 0.0243, Training time: 1935.2 ms, Data time: 107.1 ms
+Epoch: 0, Steps: 190, Batch: 189, Loss: 0.3330, Gradient size: 0.0012, Max gradient size: 0.0193, Training time: 1743.9 ms, Data time: 101.8 ms
+Epoch: 0, Steps: 200, Batch: 199, Loss: 0.3274, Gradient size: 0.0009, Max gradient size: 0.0171, Training time: 1920.0 ms, Data time: 101.4 ms
+Epoch: 0, Steps: 210, Batch: 209, Loss: 0.2998, Gradient size: 0.0010, Max gradient size: 0.0178, Training time: 1762.6 ms, Data time: 102.1 ms
+Epoch: 0, Steps: 220, Batch: 219, Loss: 0.3206, Gradient size: 0.0012, Max gradient size: 0.0190, Training time: 1934.2 ms, Data time: 106.4 ms
+Epoch: 0, Steps: 230, Batch: 229, Loss: 0.3465, Gradient size: 0.0005, Max gradient size: 0.0108, Training time: 1761.4 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 240, Batch: 239, Loss: 0.3032, Gradient size: 0.0007, Max gradient size: 0.0104, Training time: 1925.2 ms, Data time: 107.3 ms
+Epoch: 0, Steps: 250, Batch: 249, Loss: 0.2916, Gradient size: 0.0003, Max gradient size: 0.0078, Training time: 1762.5 ms, Data time: 101.9 ms
+Epoch: 0, Steps: 260, Batch: 259, Loss: 0.2491, Gradient size: 0.0003, Max gradient size: 0.0090, Training time: 1909.9 ms, Data time: 100.6 ms
+Epoch: 0, Steps: 270, Batch: 269, Loss: 0.2700, Gradient size: 0.0010, Max gradient size: 0.0186, Training time: 1762.2 ms, Data time: 106.4 ms
+Epoch: 0, Steps: 280, Batch: 279, Loss: 0.2883, Gradient size: 0.0007, Max gradient size: 0.0173, Training time: 1916.5 ms, Data time: 104.0 ms
+Epoch: 0, Steps: 290, Batch: 289, Loss: 0.3531, Gradient size: 0.0003, Max gradient size: 0.0067, Training time: 1735.6 ms, Data time: 102.0 ms
+Epoch: 0, Steps: 300, Batch: 299, Loss: 0.3478, Gradient size: 0.0004, Max gradient size: 0.0078, Training time: 1927.6 ms, Data time: 100.6 ms
+Epoch: 0, Steps: 310, Batch: 309, Loss: 0.3118, Gradient size: 0.0005, Max gradient size: 0.0142, Training time: 1776.0 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 320, Batch: 319, Loss: 0.2772, Gradient size: 0.0008, Max gradient size: 0.0138, Training time: 1911.9 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 330, Batch: 329, Loss: 0.3239, Gradient size: 0.0007, Max gradient size: 0.0139, Training time: 1776.8 ms, Data time: 100.8 ms
+Epoch: 0, Steps: 340, Batch: 339, Loss: 0.3216, Gradient size: 0.0004, Max gradient size: 0.0115, Training time: 2122.5 ms, Data time: 103.8 ms
+Epoch: 0, Steps: 350, Batch: 349, Loss: 0.3424, Gradient size: 0.0004, Max gradient size: 0.0113, Training time: 1972.8 ms, Data time: 104.6 ms
+Epoch: 0, Steps: 360, Batch: 359, Loss: 0.3404, Gradient size: 0.0002, Max gradient size: 0.0061, Training time: 2197.7 ms, Data time: 100.7 ms
+Epoch: 0, Steps: 370, Batch: 369, Loss: 0.3301, Gradient size: 0.0004, Max gradient size: 0.0077, Training time: 1954.6 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 380, Batch: 379, Loss: 0.2808, Gradient size: 0.0004, Max gradient size: 0.0067, Training time: 2081.5 ms, Data time: 102.5 ms
+Epoch: 0, Steps: 390, Batch: 389, Loss: 0.2927, Gradient size: 0.0003, Max gradient size: 0.0117, Training time: 1916.2 ms, Data time: 101.9 ms
+Epoch: 0, Steps: 400, Batch: 399, Loss: 0.2819, Gradient size: 0.0003, Max gradient size: 0.0071, Training time: 1915.2 ms, Data time: 105.6 ms
+Epoch: 0, Steps: 410, Batch: 409, Loss: 0.2859, Gradient size: 0.0003, Max gradient size: 0.0087, Training time: 1765.2 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 420, Batch: 419, Loss: 0.2843, Gradient size: 0.0005, Max gradient size: 0.0090, Training time: 1920.9 ms, Data time: 100.9 ms
+Epoch: 0, Steps: 430, Batch: 429, Loss: 0.2789, Gradient size: 0.0002, Max gradient size: 0.0045, Training time: 1782.4 ms, Data time: 102.9 ms
+Epoch: 0, Steps: 440, Batch: 439, Loss: 0.2977, Gradient size: 0.0020, Max gradient size: 0.0309, Training time: 1878.1 ms, Data time: 103.0 ms
+Epoch: 0, Steps: 450, Batch: 449, Loss: 0.3223, Gradient size: 0.0002, Max gradient size: 0.0083, Training time: 1769.5 ms, Data time: 98.8 ms
+Epoch: 0, Steps: 460, Batch: 459, Loss: 0.3260, Gradient size: 0.0003, Max gradient size: 0.0113, Training time: 1923.1 ms, Data time: 102.0 ms
+Epoch: 0, Steps: 470, Batch: 469, Loss: 0.3435, Gradient size: 0.0002, Max gradient size: 0.0057, Training time: 1781.1 ms, Data time: 101.7 ms
+Epoch: 0, Steps: 480, Batch: 479, Loss: 0.3402, Gradient size: 0.0003, Max gradient size: 0.0102, Training time: 1924.2 ms, Data time: 101.9 ms
+Epoch: 0, Steps: 490, Batch: 489, Loss: 0.3340, Gradient size: 0.0002, Max gradient size: 0.0049, Training time: 1756.3 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 500, Batch: 499, Loss: 0.3512, Gradient size: 0.0003, Max gradient size: 0.0101, Training time: 1853.5 ms, Data time: 102.4 ms
+Epoch: 0, Steps: 510, Batch: 509, Loss: 0.3249, Gradient size: 0.0003, Max gradient size: 0.0073, Training time: 1742.9 ms, Data time: 100.5 ms
+Epoch: 0, Steps: 520, Batch: 519, Loss: 0.3276, Gradient size: 0.0003, Max gradient size: 0.0078, Training time: 1890.8 ms, Data time: 99.5 ms
+Epoch: 0, Steps: 530, Batch: 529, Loss: 0.3476, Gradient size: 0.0003, Max gradient size: 0.0073, Training time: 1770.3 ms, Data time: 99.9 ms
+Epoch: 0, Steps: 540, Batch: 539, Loss: 0.3543, Gradient size: 0.0003, Max gradient size: 0.0073, Training time: 1916.1 ms, Data time: 103.6 ms
+Epoch: 0, Steps: 550, Batch: 549, Loss: 0.3362, Gradient size: 0.0003, Max gradient size: 0.0076, Training time: 1766.5 ms, Data time: 103.1 ms
+Epoch: 0, Steps: 560, Batch: 559, Loss: 0.3167, Gradient size: 0.0006, Max gradient size: 0.0115, Training time: 1905.0 ms, Data time: 104.3 ms
+Epoch: 0, Steps: 570, Batch: 569, Loss: 0.3130, Gradient size: 0.0003, Max gradient size: 0.0063, Training time: 1777.2 ms, Data time: 106.6 ms
+Epoch: 0, Steps: 580, Batch: 579, Loss: 0.3097, Gradient size: 0.0003, Max gradient size: 0.0041, Training time: 1913.0 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 590, Batch: 589, Loss: 0.2870, Gradient size: 0.0002, Max gradient size: 0.0036, Training time: 1781.5 ms, Data time: 105.8 ms
+Epoch: 0, Steps: 600, Batch: 599, Loss: 0.2885, Gradient size: 0.0003, Max gradient size: 0.0122, Training time: 1937.2 ms, Data time: 105.2 ms
+Epoch: 0, Steps: 610, Batch: 609, Loss: 0.3190, Gradient size: 0.0005, Max gradient size: 0.0181, Training time: 1784.2 ms, Data time: 100.5 ms
+Epoch: 0, Steps: 620, Batch: 619, Loss: 0.3110, Gradient size: 0.0002, Max gradient size: 0.0070, Training time: 1920.4 ms, Data time: 101.4 ms
+Epoch: 0, Steps: 630, Batch: 629, Loss: 0.2968, Gradient size: 0.0003, Max gradient size: 0.0079, Training time: 1758.6 ms, Data time: 103.3 ms
+Epoch: 0, Steps: 640, Batch: 639, Loss: 0.2756, Gradient size: 0.0003, Max gradient size: 0.0052, Training time: 1909.8 ms, Data time: 101.1 ms
+Epoch: 0, Steps: 650, Batch: 649, Loss: 0.2779, Gradient size: 0.0005, Max gradient size: 0.0087, Training time: 1775.0 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 660, Batch: 659, Loss: 0.3038, Gradient size: 0.0003, Max gradient size: 0.0113, Training time: 1922.7 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 670, Batch: 669, Loss: 0.3428, Gradient size: 0.0002, Max gradient size: 0.0070, Training time: 1775.1 ms, Data time: 101.0 ms
+Epoch: 0, Steps: 680, Batch: 679, Loss: 0.3139, Gradient size: 0.0003, Max gradient size: 0.0089, Training time: 1922.8 ms, Data time: 104.4 ms
+Epoch: 0, Steps: 690, Batch: 689, Loss: 0.3018, Gradient size: 0.0005, Max gradient size: 0.0107, Training time: 1775.7 ms, Data time: 104.4 ms
+Epoch: 0, Steps: 700, Batch: 699, Loss: 0.2813, Gradient size: 0.0003, Max gradient size: 0.0065, Training time: 1907.9 ms, Data time: 103.8 ms
+Epoch: 0, Steps: 710, Batch: 709, Loss: 0.2665, Gradient size: 0.0002, Max gradient size: 0.0047, Training time: 1742.2 ms, Data time: 100.5 ms
+Epoch: 0, Steps: 720, Batch: 719, Loss: 0.2690, Gradient size: 0.0007, Max gradient size: 0.0109, Training time: 1908.2 ms, Data time: 106.1 ms
+Epoch: 0, Steps: 730, Batch: 729, Loss: 0.2757, Gradient size: 0.0002, Max gradient size: 0.0077, Training time: 1781.5 ms, Data time: 104.7 ms
+Epoch: 0, Steps: 740, Batch: 739, Loss: 0.2720, Gradient size: 0.0003, Max gradient size: 0.0130, Training time: 2087.9 ms, Data time: 100.6 ms
+Epoch: 0, Steps: 750, Batch: 749, Loss: 0.2721, Gradient size: 0.0003, Max gradient size: 0.0089, Training time: 1894.0 ms, Data time: 102.7 ms
+Epoch: 0, Steps: 760, Batch: 759, Loss: 0.2862, Gradient size: 0.0004, Max gradient size: 0.0093, Training time: 2091.9 ms, Data time: 104.6 ms
+Epoch: 0, Steps: 770, Batch: 769, Loss: 0.3003, Gradient size: 0.0003, Max gradient size: 0.0051, Training time: 1939.4 ms, Data time: 100.0 ms
+Epoch: 0, Steps: 780, Batch: 779, Loss: 0.2690, Gradient size: 0.0004, Max gradient size: 0.0137, Training time: 1912.1 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 790, Batch: 789, Loss: 0.2741, Gradient size: 0.0002, Max gradient size: 0.0064, Training time: 1756.7 ms, Data time: 104.3 ms
+Epoch: 0, Steps: 800, Batch: 799, Loss: 0.2599, Gradient size: 0.0003, Max gradient size: 0.0119, Training time: 1908.0 ms, Data time: 102.6 ms
+Epoch: 0, Steps: 810, Batch: 809, Loss: 0.2437, Gradient size: 0.0003, Max gradient size: 0.0085, Training time: 1782.3 ms, Data time: 106.2 ms
+Epoch: 0, Steps: 820, Batch: 819, Loss: 0.2866, Gradient size: 0.0003, Max gradient size: 0.0093, Training time: 1910.7 ms, Data time: 101.3 ms
+Epoch: 0, Steps: 830, Batch: 829, Loss: 0.2851, Gradient size: 0.0002, Max gradient size: 0.0065, Training time: 1780.9 ms, Data time: 100.5 ms
+Epoch: 0, Steps: 840, Batch: 839, Loss: 0.3359, Gradient size: 0.0008, Max gradient size: 0.0236, Training time: 1869.4 ms, Data time: 101.9 ms
+Epoch: 0, Steps: 850, Batch: 849, Loss: 0.3424, Gradient size: 0.0002, Max gradient size: 0.0065, Training time: 1779.7 ms, Data time: 101.6 ms
+Epoch: 0, Steps: 860, Batch: 859, Loss: 0.3106, Gradient size: 0.0003, Max gradient size: 0.0079, Training time: 1927.1 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 870, Batch: 869, Loss: 0.2650, Gradient size: 0.0005, Max gradient size: 0.0078, Training time: 1770.5 ms, Data time: 104.0 ms
+Epoch: 0, Steps: 880, Batch: 879, Loss: 0.2738, Gradient size: 0.0002, Max gradient size: 0.0042, Training time: 1928.4 ms, Data time: 102.9 ms
+Epoch: 0, Steps: 890, Batch: 889, Loss: 0.2776, Gradient size: 0.0003, Max gradient size: 0.0050, Training time: 1783.6 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 900, Batch: 899, Loss: 0.2850, Gradient size: 0.0002, Max gradient size: 0.0047, Training time: 1890.5 ms, Data time: 103.6 ms
+Epoch: 0, Steps: 910, Batch: 909, Loss: 0.2510, Gradient size: 0.0002, Max gradient size: 0.0042, Training time: 1776.9 ms, Data time: 103.7 ms
+Epoch: 0, Steps: 920, Batch: 919, Loss: 0.2697, Gradient size: 0.0004, Max gradient size: 0.0060, Training time: 1933.9 ms, Data time: 107.0 ms
+Epoch: 0, Steps: 930, Batch: 929, Loss: 0.2698, Gradient size: 0.0003, Max gradient size: 0.0092, Training time: 1788.0 ms, Data time: 104.0 ms
+Epoch: 0, Steps: 940, Batch: 939, Loss: 0.2879, Gradient size: 0.0003, Max gradient size: 0.0076, Training time: 1892.6 ms, Data time: 106.9 ms
+Epoch: 0, Steps: 950, Batch: 949, Loss: 0.3360, Gradient size: 0.0006, Max gradient size: 0.0115, Training time: 1782.9 ms, Data time: 99.7 ms
+Epoch: 0, Steps: 960, Batch: 959, Loss: 0.3393, Gradient size: 0.0003, Max gradient size: 0.0156, Training time: 1909.7 ms, Data time: 104.0 ms
+Epoch: 0, Steps: 970, Batch: 969, Loss: 0.3418, Gradient size: 0.0003, Max gradient size: 0.0067, Training time: 1796.0 ms, Data time: 105.2 ms
+Epoch: 0, Steps: 980, Batch: 979, Loss: 0.3402, Gradient size: 0.0005, Max gradient size: 0.0146, Training time: 1905.1 ms, Data time: 102.4 ms
+Epoch: 0, Steps: 990, Batch: 989, Loss: 0.3419, Gradient size: 0.0003, Max gradient size: 0.0057, Training time: 1784.0 ms, Data time: 107.2 ms
+Epoch: 0, Steps: 1000, Batch: 999, Loss: 0.2776, Gradient size: 0.0003, Max gradient size: 0.0056, Training time: 1917.1 ms, Data time: 100.6 ms
+Epoch: 0, Steps: 1000 - Saving LoRA weights
+Epoch: 0, Steps: 1000 - Generating a sample
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 185, in <module>
+[rank0]:     main()
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 181, in main
+[rank0]:     trainer.fit(trainable_model, train_loader)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 584, in fit
+[rank0]:     call._call_and_handle_interrupt(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 48, in _call_and_handle_interrupt
+[rank0]:     return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/launchers/subprocess_script.py", line 105, in launch
+[rank0]:     return function(*args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 630, in _fit_impl
+[rank0]:     self._run(model, ckpt_path=ckpt_path, weights_only=weights_only)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1079, in _run
+[rank0]:     results = self._run_stage()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1123, in _run_stage
+[rank0]:     self.fit_loop.run()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 217, in run
+[rank0]:     self.advance()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 465, in advance
+[rank0]:     self.epoch_loop.run(self._data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 153, in run
+[rank0]:     self.advance(data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 375, in advance
+[rank0]:     call._call_callback_hooks(trainer, "on_train_batch_end", batch_output, batch, batch_idx)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 228, in _call_callback_hooks
+[rank0]:     fn(trainer, trainer.lightning_module, *args, **kwargs)
+[rank0]:   File "/data/repos/models/flux/src/train/callbacks.py", line 141, in on_train_batch_end
+[rank0]:     self.generate_a_sample(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:   File "/data/repos/models/flux/src/train/callbacks.py", line 189, in generate_a_sample
+[rank0]:     pl_module.flux_fill_pipe.transformer.eval()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1940, in __getattr__
+[rank0]:     raise AttributeError(
+[rank0]: AttributeError: 'OminiModel' object has no attribute 'flux_fill_pipe'
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 185, in <module>
+[rank0]:     main()
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 181, in main
+[rank0]:     trainer.fit(trainable_model, train_loader)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 584, in fit
+[rank0]:     call._call_and_handle_interrupt(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 48, in _call_and_handle_interrupt
+[rank0]:     return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/launchers/subprocess_script.py", line 105, in launch
+[rank0]:     return function(*args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 630, in _fit_impl
+[rank0]:     self._run(model, ckpt_path=ckpt_path, weights_only=weights_only)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1079, in _run
+[rank0]:     results = self._run_stage()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1123, in _run_stage
+[rank0]:     self.fit_loop.run()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 217, in run
+[rank0]:     self.advance()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 465, in advance
+[rank0]:     self.epoch_loop.run(self._data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 153, in run
+[rank0]:     self.advance(data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 375, in advance
+[rank0]:     call._call_callback_hooks(trainer, "on_train_batch_end", batch_output, batch, batch_idx)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 228, in _call_callback_hooks
+[rank0]:     fn(trainer, trainer.lightning_module, *args, **kwargs)
+[rank0]:   File "/data/repos/models/flux/src/train/callbacks.py", line 141, in on_train_batch_end
+[rank0]:     self.generate_a_sample(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:   File "/data/repos/models/flux/src/train/callbacks.py", line 189, in generate_a_sample
+[rank0]:     pl_module.flux_fill_pipe.transformer.eval()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1940, in __getattr__
+[rank0]:     raise AttributeError(
+[rank0]: AttributeError: 'OminiModel' object has no attribute 'flux_fill_pipe'

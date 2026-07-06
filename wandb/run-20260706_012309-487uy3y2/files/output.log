@@ -1,0 +1,166 @@
+Rank: 0
+Config: {'flux_path': 'black-forest-labs/FLUX.1-Kontext-dev', 'dtype': 'bfloat16', 'model': {'union_cond_attn': True, 'add_cond_attn': False, 'latent_lora': False, 'use_sep': False, 'use_type_embedding': True}, 'train': {'batch_size': 1, 'accumulate_grad_batches': 4, 'dataloader_workers': 2, 'save_interval': 1000, 'sample_interval': 1000, 'max_steps': 100000, 'gradient_checkpointing': True, 'save_path': 'runs/train_moe_lora+type_emb', 'condition_type': 'edit', 'dataset': {'type': 'omini', 'json_path': '/data/datasets/OmniEdit-mini/train.json', 'root_path': '/data/datasets', 'condition_size': 512, 'target_size': 512, 'image_size': 512, 'padding': 8, 'drop_text_prob': 0.1, 'drop_image_prob': 0.1, 'specific_task': None}, 'wandb': {'project': 'Edit'}, 'lora_config': {'r': 32, 'lora_alpha': 32, 'init_lora_weights': 'gaussian', 'target_modules': '(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)', 'num_experts': 4, 'expert_rank': 32, 'expert_alpha': 32, 'top_k': 1, 'route_input_dim': 768}, 'optimizer': {'type': 'Prodigy', 'params': {'lr': 1, 'use_bias_correction': True, 'safeguard_warmup': True, 'weight_decay': 0.01}}}}
+
+OminiDataset loaded 33704 samples from /data/datasets/OmniEdit-mini/train.json
+  addition: 12642 (37.5%)
+  removal: 4214 (12.5%)
+  swap: 8424 (25.0%)
+  attribute_modification: 4212 (12.5%)
+  env: 4212 (12.5%)
+Dataset length: 33704
+Loading checkpoint shards: 100%|██████████| 2/2 [00:08<00:00,  4.06s/it]it/s]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:19<00:00,  6.65s/it]s/it]
+Loading pipeline components...:  71%|███████▏  | 5/7 [00:28<00:10,  5.23s/it]You set `add_prefix_space`. The tokenizer needs to be converted from the slow tokenizers
+Loading pipeline components...: 100%|██████████| 7/7 [00:29<00:00,  4.17s/it]
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/2
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 2 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1]
+Using decoupled weight decay
+┏━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name           ┃ Type                   ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ transformer    │ FluxTransformer2DModel │ 12.1 B │ train │     0 │
+│ 1 │ text_encoder   │ CLIPTextModel          │  123 M │ eval  │     0 │
+│ 2 │ text_encoder_2 │ T5EncoderModel         │  4.8 B │ eval  │     0 │
+└───┴────────────────┴────────────────────────┴────────┴───────┴───────┘
+Trainable params: 87.4 M
+Non-trainable params: 16.9 B
+Total params: 17.0 B
+Total estimated model params size (MB): 68.0 K
+Modules in train mode: 5451
+Modules in eval mode: 615
+Total FLOPs: 0
+/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py:534: Found 615 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Epoch: 0, Steps: 10, Batch: 9, Loss: 0.1186, Gradient size: 0.0008, Max gradient size: 0.0148, Training time: 1915.8 ms, Data time: 89.9 ms
+Epoch: 0, Steps: 20, Batch: 19, Loss: 0.2055, Gradient size: 0.0006, Max gradient size: 0.0183, Training time: 1671.9 ms, Data time: 92.1 ms
+Epoch: 0, Steps: 30, Batch: 29, Loss: 0.2143, Gradient size: 0.0005, Max gradient size: 0.0089, Training time: 1590.3 ms, Data time: 95.5 ms
+Epoch: 0, Steps: 40, Batch: 39, Loss: 0.2353, Gradient size: 0.0007, Max gradient size: 0.0129, Training time: 1760.1 ms, Data time: 95.9 ms
+Epoch: 0, Steps: 50, Batch: 49, Loss: 0.2583, Gradient size: 0.0006, Max gradient size: 0.0145, Training time: 1675.5 ms, Data time: 97.5 ms
+Epoch: 0, Steps: 60, Batch: 59, Loss: 0.2600, Gradient size: 0.0005, Max gradient size: 0.0125, Training time: 1839.2 ms, Data time: 99.9 ms
+Epoch: 0, Steps: 70, Batch: 69, Loss: 0.2516, Gradient size: 0.0003, Max gradient size: 0.0132, Training time: 1702.1 ms, Data time: 96.7 ms
+Epoch: 0, Steps: 80, Batch: 79, Loss: 0.2610, Gradient size: 0.0009, Max gradient size: 0.0165, Training time: 1850.0 ms, Data time: 99.4 ms
+Epoch: 0, Steps: 90, Batch: 89, Loss: 0.2626, Gradient size: 0.0007, Max gradient size: 0.0195, Training time: 1733.3 ms, Data time: 99.3 ms
+Epoch: 0, Steps: 100, Batch: 99, Loss: 0.2299, Gradient size: 0.0007, Max gradient size: 0.0115, Training time: 1879.0 ms, Data time: 103.5 ms
+Epoch: 0, Steps: 110, Batch: 109, Loss: 0.2524, Gradient size: 0.0037, Max gradient size: 0.0698, Training time: 1710.2 ms, Data time: 102.3 ms
+[rank: 0] Received SIGTERM: 15
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 48, in _call_and_handle_interrupt
+[rank0]:     return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/launchers/subprocess_script.py", line 105, in launch
+[rank0]:     return function(*args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 630, in _fit_impl
+[rank0]:     self._run(model, ckpt_path=ckpt_path, weights_only=weights_only)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1079, in _run
+[rank0]:     results = self._run_stage()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1123, in _run_stage
+[rank0]:     self.fit_loop.run()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 217, in run
+[rank0]:     self.advance()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 465, in advance
+[rank0]:     self.epoch_loop.run(self._data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 154, in run
+[rank0]:     self.on_advance_end(data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 422, in on_advance_end
+[rank0]:     raise SIGTERMException
+[rank0]: lightning.pytorch.utilities.exceptions.SIGTERMException
+
+[rank0]: During handling of the above exception, another exception occurred:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 184, in <module>
+[rank0]:     main()
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 180, in main
+[rank0]:     trainer.fit(trainable_model, train_loader)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 584, in fit
+[rank0]:     call._call_and_handle_interrupt(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 70, in _call_and_handle_interrupt
+[rank0]:     trainer._teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1102, in _teardown
+[rank0]:     self.strategy.teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/ddp.py", line 444, in teardown
+[rank0]:     super().teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/parallel.py", line 134, in teardown
+[rank0]:     super().teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/strategy.py", line 532, in teardown
+[rank0]:     _optimizers_to_device(self.optimizers, torch.device("cpu"))
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/optimizer.py", line 27, in _optimizers_to_device
+[rank0]:     _optimizer_to_device(opt, device)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/optimizer.py", line 41, in _optimizer_to_device
+[rank0]:     v[key] = move_data_to_device(val, device)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/apply_func.py", line 110, in move_data_to_device
+[rank0]:     return apply_to_collection(batch, dtype=_TransferableDataType, function=batch_to)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning_utilities/core/apply_func.py", line 70, in apply_to_collection
+[rank0]:     return function(data, *args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/apply_func.py", line 104, in batch_to
+[rank0]:     data_output = data.to(device, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
+[rank0]:     _error_if_any_worker_fails()
+[rank0]: RuntimeError: DataLoader worker (pid 2806578) is killed by signal: Terminated.
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 48, in _call_and_handle_interrupt
+[rank0]:     return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/launchers/subprocess_script.py", line 105, in launch
+[rank0]:     return function(*args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 630, in _fit_impl
+[rank0]:     self._run(model, ckpt_path=ckpt_path, weights_only=weights_only)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1079, in _run
+[rank0]:     results = self._run_stage()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1123, in _run_stage
+[rank0]:     self.fit_loop.run()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 217, in run
+[rank0]:     self.advance()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/fit_loop.py", line 465, in advance
+[rank0]:     self.epoch_loop.run(self._data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 154, in run
+[rank0]:     self.on_advance_end(data_fetcher)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loops/training_epoch_loop.py", line 422, in on_advance_end
+[rank0]:     raise SIGTERMException
+[rank0]: lightning.pytorch.utilities.exceptions.SIGTERMException
+
+[rank0]: During handling of the above exception, another exception occurred:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 184, in <module>
+[rank0]:     main()
+[rank0]:   File "/data/repos/models/flux/src/train/train_moe.py", line 180, in main
+[rank0]:     trainer.fit(trainable_model, train_loader)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 584, in fit
+[rank0]:     call._call_and_handle_interrupt(
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/call.py", line 70, in _call_and_handle_interrupt
+[rank0]:     trainer._teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/trainer/trainer.py", line 1102, in _teardown
+[rank0]:     self.strategy.teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/ddp.py", line 444, in teardown
+[rank0]:     super().teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/parallel.py", line 134, in teardown
+[rank0]:     super().teardown()
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/pytorch/strategies/strategy.py", line 532, in teardown
+[rank0]:     _optimizers_to_device(self.optimizers, torch.device("cpu"))
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/optimizer.py", line 27, in _optimizers_to_device
+[rank0]:     _optimizer_to_device(opt, device)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/optimizer.py", line 41, in _optimizer_to_device
+[rank0]:     v[key] = move_data_to_device(val, device)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/apply_func.py", line 110, in move_data_to_device
+[rank0]:     return apply_to_collection(batch, dtype=_TransferableDataType, function=batch_to)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning_utilities/core/apply_func.py", line 70, in apply_to_collection
+[rank0]:     return function(data, *args, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/lightning/fabric/utilities/apply_func.py", line 104, in batch_to
+[rank0]:     data_output = data.to(device, **kwargs)
+[rank0]:   File "/usr/local/lib/python3.10/dist-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
+[rank0]:     _error_if_any_worker_fails()
+[rank0]: RuntimeError: DataLoader worker (pid 2806578) is killed by signal: Terminated.
