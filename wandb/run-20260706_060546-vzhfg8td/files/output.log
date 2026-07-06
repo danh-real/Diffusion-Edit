@@ -65,3 +65,6 @@ Epoch: 0, Steps: 30, Batch: 29, Loss: 0.2526, Gradient size: 0.0010, Max gradien
 Epoch: 0, Steps: 40, Batch: 39, Loss: 0.2847, Gradient size: 0.0011, Max gradient size: 0.0167, Training time: 1808.0 ms, Data time: 98.4 ms
 Epoch: 0, Steps: 50, Batch: 49, Loss: 0.3066, Gradient size: 0.0007, Max gradient size: 0.0162, Training time: 1699.5 ms, Data time: 99.9 ms
 Epoch: 0, Steps: 60, Batch: 59, Loss: 0.3027, Gradient size: 0.0011, Max gradient size: 0.0225, Training time: 1827.9 ms, Data time: 100.6 ms
+Epoch: 0, Steps: 620, Batch: 619, Loss: 0.3111, Gradient size: 0.0002, Max gradient size: 0.0070, Training time: 1929.0 ms, Data time: 105.8 ms
+Epoch: 0, Steps: 630, Batch: 629, Loss: 0.2968, Gradient size: 0.0003, Max gradient size: 0.0081, Training time: 1776.0 ms, Data time: 102.1 ms
+Epoch: 0, Steps: 640, Batch: 639, Loss: 0.2756, Gradient size: 0.0003, Max gradient size: 0.0052, Training time: 1921.4 ms, Data time: 104.2 ms
