@@ -22,8 +22,8 @@ train:
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/repos/datasets/AnyEdit/train.json"
-    root_path: "/data/repos/datasets"
+    json_path: "/data/sd/datasets/AnyEdit/train.json"
+    root_path: "/data/sd/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
