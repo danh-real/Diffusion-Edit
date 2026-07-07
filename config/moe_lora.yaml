@@ -17,7 +17,7 @@ train:
   sample_interval: 1000
   max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/train_moe_lora+type_emb"
+  save_path: "runs/train_moe_lora"
 
   condition_type: "edit"
   dataset:

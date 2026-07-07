@@ -189,29 +189,45 @@ class TrainingCallback(L.Callback):
         pl_module.flux_kontext_pipe.transformer.eval()
         for i, name in enumerate(file_name):
             test_image = Image.open(name)
-            combined_image = Image.new('RGB', (test_image.size[0] * 2, test_image.size[1]))
-            combined_image.paste(test_image, (0, 0))
-            combined_image.paste(test_image, (test_image.size[0], 0))
 
-            mask = Image.new('L', combined_image.size, 0)
-            draw = ImageDraw.Draw(mask)
-            draw.rectangle([test_image.size[0], 0, test_image.size[0] * 2, test_image.size[1]], fill=255)
-            if condition_type == 'edit_n':
-                prompt_ = "A diptych with two side-by-side images of the same scene. On the right, the scene is exactly the same as on the left. \n " + test_instruction[i]
+            if pl_module.use_sequence_conditioning:
+                # Kontext conditions on the reference image directly (no mask/diptych) —
+                # mirrors infer.py's inference call and the training data in data.py.
+                image = pl_module.flux_kontext_pipe(
+                    prompt=test_instruction[i],
+                    image=test_image,
+                    height=test_image.size[1],
+                    width=test_image.size[0],
+                    guidance_scale=2.5,
+                    num_inference_steps=28,
+                    max_sequence_length=512,
+                    generator=torch.Generator("cpu").manual_seed(666)
+                ).images[0]
+                image.save(os.path.join(save_path, f'flux-kontext-test-{self.total_steps}-{i}-{condition_type}.jpg'))
             else:
-                prompt_ = "A diptych with two side-by-side images of the same scene. On the right, the scene is exactly the same as on the left but " + test_instruction[i]
+                combined_image = Image.new('RGB', (test_image.size[0] * 2, test_image.size[1]))
+                combined_image.paste(test_image, (0, 0))
+                combined_image.paste(test_image, (test_image.size[0], 0))
 
-            image = pl_module.flux_kontext_pipe(
-                prompt=prompt_,
-                image=combined_image,
-                height=512,
-                width=1024,
-                mask_image=mask,
-                guidance_scale=50,
-                num_inference_steps=50,
-                max_sequence_length=512,
-                generator=torch.Generator("cpu").manual_seed(666)
-            ).images[0]
-            image.save(os.path.join(save_path, f'flux-fill-test-{self.total_steps}-{i}-{condition_type}.jpg'))
+                mask = Image.new('L', combined_image.size, 0)
+                draw = ImageDraw.Draw(mask)
+                draw.rectangle([test_image.size[0], 0, test_image.size[0] * 2, test_image.size[1]], fill=255)
+                if condition_type == 'edit_n':
+                    prompt_ = "A diptych with two side-by-side images of the same scene. On the right, the scene is exactly the same as on the left. \n " + test_instruction[i]
+                else:
+                    prompt_ = "A diptych with two side-by-side images of the same scene. On the right, the scene is exactly the same as on the left but " + test_instruction[i]
+
+                image = pl_module.flux_kontext_pipe(
+                    prompt=prompt_,
+                    image=combined_image,
+                    height=512,
+                    width=1024,
+                    mask_image=mask,
+                    guidance_scale=50,
+                    num_inference_steps=50,
+                    max_sequence_length=512,
+                    generator=torch.Generator("cpu").manual_seed(666)
+                ).images[0]
+                image.save(os.path.join(save_path, f'flux-fill-test-{self.total_steps}-{i}-{condition_type}.jpg'))
 
         pl_module.flux_kontext_pipe.transformer.train()
