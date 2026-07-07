@@ -11,8 +11,8 @@ model:
 
 train:
   batch_size: 1
-  accumulate_grad_batches: 4
-  dataloader_workers: 2
+  accumulate_grad_batches: 8
+  dataloader_workers: 4
   save_interval: 1000
   sample_interval: 1000
   max_steps: 100000
@@ -22,8 +22,8 @@ train:
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/datasets/AnyEdit/train.json"
-    root_path: "/data/datasets"
+    json_path: "/data/repos/datasets/AnyEdit/train.json"
+    root_path: "/data/repos/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
