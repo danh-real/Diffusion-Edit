@@ -1,5 +1,4 @@
-# flux_path: "/data/sd/ICEdit/ckpt/FLUX.1-Kontext-dev"
-flux_path: "black-forest-labs/FLUX.1-Kontext-dev"
+flux_path: "ckpt/FLUX.1-Kontext-dev"
 dtype: "bfloat16"
 
 model:
