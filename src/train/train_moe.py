@@ -46,15 +46,13 @@ def get_config():
     return config
 
 
-def init_wandb(wandb_config, run_name):
+def init_wandb(wandb_config):
     import wandb
 
     try:
-        # print(os.environ.get("WANDB_API_KEY"))
-        # assert os.environ.get("WANDB_API_KEY") is not None
         wandb.init(
             project=wandb_config["project"],
-            name=run_name,
+            name=f'[{time.strftime("%Y%m%d-%H%M%S")}] {wandb_config["run_name"]}',
             config={},
         )
     except Exception as e:
@@ -78,7 +76,7 @@ def main():
     # Initialize WanDB
     wandb_config = training_config.get("wandb", None)
     if wandb_config is not None and is_main_process:
-        init_wandb(wandb_config, run_name)
+        init_wandb(wandb_config)
 
     print("Rank:", rank)
     if is_main_process:

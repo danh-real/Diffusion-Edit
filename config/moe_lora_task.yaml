@@ -1,5 +1,4 @@
-# flux_path: "/data/sd/ICEdit/ckpt/FLUX.1-Fill-dev"
-flux_path: "/data/repos/models/ICEdit/ckpt/FLUX.1-Fill-dev"
+flux_path: "ckpt/FLUX.1-Kontext-dev"
 dtype: "bfloat16"
 
 model:
@@ -7,22 +6,23 @@ model:
   add_cond_attn: false
   latent_lora: false
   use_sep: false
+  use_type_embedding: true
 
 train:
   batch_size: 1
-  accumulate_grad_batches: 4
-  dataloader_workers: 2
+  accumulate_grad_batches: 8
+  dataloader_workers: 4
   save_interval: 1000
   sample_interval: 1000
   max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/train_moe_specialized"
+  save_path: "runs/train_moe_lora"
 
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/datasets/AnyEdit/train.json"
-    root_path: "/data/datasets"
+    json_path: "/data/sd/datasets/AnyEdit/train.json"
+    root_path: "/data/sd/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
@@ -31,46 +31,27 @@ train:
     drop_image_prob: 0.1
     specific_task: null
 
-  # ── GRPO routing RL config ────────────────────────────────────────────────
-  rl:
-    train_lora: true
-    num_rollouts: 8             # G — stochastic routing samples per batch
-                                # Lower → faster steps, higher variance
-                                # Higher → better advantage estimates, more VRAM
-    supervised_coeff: 1.0       # Keep supervised signal dominant
-    rl_coeff: 1.0               # Weight of policy-gradient loss vs supervised loss
-    load_balancing_coeff: 0.001 # Weight of load balancing loss
-    z_coeff: 0.001              # Weight of router z loss
-    stochastic_ratio: 0.2       # Fraction of tokens routed stochastically per rollout
-                                # 1.0 = all tokens stochastic (original behaviour)
-                                # 0.5 = half tokens stochastic, rest use greedy lora_route
-    reward:
-      type: "mse"               # "mse" = negative per-sample MSE (default)
-                                # Add a branch in build_reward_fn() for custom metrics
-
   wandb:
-    project: "ICEdit"
+    project: "Edit"
+    run_name: "task-specific-moe-lora"
 
   lora_config:
     r: 32
     lora_alpha: 32
     init_lora_weights: "gaussian"
     target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
-    num_experts: 4
+    num_experts: 8
     expert_rank: 32
     expert_alpha: 32
-    top_k: 1
+    top_k: 3
+    route_input_dim: 768
 
-  # Pre-defined task-to-expert mapping.
-  # If a batch sample's "task" field matches a key here, routing is fixed to
-  # the specified expert index (supervised loss only, no GRPO rollouts).
-  # Tasks not listed here use GRPO-trained routing as usual.
-  # Example (uncomment and fill in to activate):
-  task_to_expert_map:
+  task_expert_map:
     add: 0
     remove: 1
-    style_transfer: 2
-    # texture_transfer: 3
+    swap: 2
+    appearance_alter: 3
+    background_change: 4
 
   optimizer:
     type: "Prodigy"
