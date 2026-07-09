@@ -1134,9 +1134,14 @@ class Linear(nn.Module, LoraLayer):
                     # hang waiting on its gradient bucket, since routing_mode can differ
                     # per batch/rank depending on which tasks are and aren't in the map.
                     route_logits = self.lora_route[activate_adapter_name](x)
-                    route_weight = self.imposed_route_weight.to(result.dtype).expand(
-                        x.shape[0], x.shape[1], -1
-                    ) + 0.0 * route_logits
+
+                    top_k_probs = route_logits[:, :, self.imposed_route_weight]
+                    top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(result.dtype)
+                    top_k_indices = torch.tensor([[self.imposed_route_weight]], dtype=int).to(top_k_probs.device)
+                    top_k_indices = top_k_indices.repeat(top_k_probs.shape[0], top_k_probs.shape[1], 1)
+                    
+                    route_weight = torch.zeros_like(route_logits)
+                    route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
                 else:
                     # 计算路由分数
                     route_logits = self.lora_route[activate_adapter_name](x)
@@ -1148,11 +1153,8 @@ class Linear(nn.Module, LoraLayer):
 
                     # 创建掩码并应用
                     route_weight = torch.zeros_like(route_logits)
-                    route_weight=route_weight.scatter_(-1, top_k_indices, top_k_probs)
+                    route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
                     # 计算 softmax，topk之外的weight应该是0
-
-                #print(route_weight.shape)
-                #print(route_weight)
 
                 # 应用专家
                 for i in range(self.num_experts):

@@ -3,6 +3,7 @@ wandb/
 .claude/
 runs/
 ckpt/
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/

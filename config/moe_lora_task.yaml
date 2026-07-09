@@ -47,11 +47,12 @@ train:
     route_input_dim: 768
 
   task_expert_map:
-    add: 0
-    remove: 1
-    swap: 2
-    appearance_alter: 3
-    background_change: 4
+    add: [0, 6, 7]
+    remove: [1, 6, 7]
+    action_change: [2, 6, 7]
+    style_change: [3, 6, 7]
+    background_change: [4, 6, 7]
+    rotation_change: [5, 6, 7]
 
   optimizer:
     type: "Prodigy"

@@ -177,7 +177,7 @@ def set_routing_mode(model: nn.Module, mode: str) -> None:
         layer.routing_mode = mode
 
 
-def set_fixed_routing(model: nn.Module, expert_idx: int) -> None:
+def set_fixed_routing(model: nn.Module, expert_idx: list[int]) -> None:
     """Fix all MoE layers to route exclusively to expert_idx (replay mode, one-hot weight).
 
     Sets imposed_route_weight to a [1, 1, E] one-hot tensor that broadcasts over
@@ -186,11 +186,11 @@ def set_fixed_routing(model: nn.Module, expert_idx: int) -> None:
     the forward/backward to restore normal routing.
     """
     for layer in _moe_layers(model):
-        E = layer.num_experts
-        route_linear = layer.lora_route[layer.active_adapters[0]]
-        weight = torch.zeros(1, 1, E, dtype=route_linear.weight.dtype, device=route_linear.weight.device)
-        weight[0, 0, expert_idx] = 1.0
-        layer.imposed_route_weight = weight
+        # E = layer.num_experts
+        # route_linear = layer.lora_route[layer.active_adapters[0]]
+        # weight = torch.zeros(1, 1, E, dtype=route_linear.weight.dtype, device=route_linear.weight.device)
+        # weight[0, 0, expert_idx] = 1.0
+        layer.imposed_route_weight = expert_idx
         layer.routing_mode = "replay"
 
 
