@@ -861,7 +861,10 @@ class Linear(nn.Module, LoraLayer):
     ):
         expert_list = []
         for i in range(num_experts):
-            expert_list.append(f"expert_{i}")
+            # Prefixed with adapter_name so get_peft_model_state_dict's `adapter_name in k`
+            # filter (it otherwise strips everything not tagged with the active adapter)
+            # picks up expert weights too, not just the router.
+            expert_list.append(f"{adapter_name}_expert_{i}")
         # This code works for linear layers, override for other layer types
         if r <= 0 or num_experts <= 0 or expert_rank <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
@@ -876,8 +879,7 @@ class Linear(nn.Module, LoraLayer):
             lora_dropout_layer = nn.Identity()
 
         self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
-        # Actual trainable parameters
-        # experts in dict
+        # Actual trainable parameters experts in dict
         for i in range(num_experts):
             expert_name = expert_list[i]
             self.lora_A[expert_name] = nn.Linear(self.in_features, expert_rank, bias=False)
@@ -916,7 +918,7 @@ class Linear(nn.Module, LoraLayer):
         elif init_lora_weights:
             self.reset_lora_parameters(adapter_name, init_lora_weights)
             for i in range(num_experts):
-                expert_name = f"expert_{i}"
+                expert_name = f"{adapter_name}_expert_{i}"
                 self.reset_lora_parameters(expert_name, init_lora_weights)
         # call this before dora_init
         self._move_adapter_to_device_of_base_layer(adapter_name)
@@ -1156,16 +1158,37 @@ class Linear(nn.Module, LoraLayer):
                     route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
                     # 计算 softmax，topk之外的weight应该是0
 
-                # 应用专家
+                # 应用专家 (sparse dispatch: gather only the tokens routed to each expert
+                # instead of running every expert over the full sequence and zeroing out
+                # the unselected tokens' contribution)
+                B, T, _ = x.shape
+                x_flat = x.reshape(B * T, -1)
+                route_weight_flat = route_weight.reshape(B * T, self.num_experts)
+                result = result.reshape(B * T, -1)
+
                 for i in range(self.num_experts):
-                    expert_name = f"expert_{i}"
+                    expert_name = f"{activate_adapter_name}_expert_{i}"
                     lora_A = self.lora_A[expert_name]
                     lora_B = self.lora_B[expert_name]
                     scaling = self.scaling[expert_name]
                     dropout = self.lora_dropout[expert_name]
-                    result += lora_B(lora_A(dropout(x))) * scaling * torch.unsqueeze(route_weight[:,:,i], -1)
 
-                result = result.to(torch_result_dtype)
+                    weight_i = route_weight_flat[:, i]
+                    idx = weight_i.nonzero(as_tuple=True)[0]
+
+                    # Always run the (possibly empty) gathered batch through lora_A/lora_B —
+                    # never skip when idx is empty. Under DDP (find_unused_parameters=False,
+                    # the default), an expert that gets zero tokens this step/rank would
+                    # otherwise never appear in that backward() call, and training hangs
+                    # waiting on a gradient bucket that's never produced. An empty-batch
+                    # forward still connects the expert's parameters to the graph (grad ends
+                    # up all-zero, but present, not None), which is all DDP needs.
+                    selected_x = x_flat.index_select(0, idx)
+                    expert_out = lora_B(lora_A(dropout(selected_x))) * scaling
+                    expert_out = expert_out * weight_i.index_select(0, idx).unsqueeze(-1)
+                    result.index_add_(0, idx, expert_out.to(result.dtype))
+
+                result = result.reshape(B, T, -1).to(torch_result_dtype)
 
             elif moe_type == "sequence_wise":
                 result = self.base_layer(x, *args, **kwargs)
@@ -1188,7 +1211,7 @@ class Linear(nn.Module, LoraLayer):
                 
                 # 应用专家
                 for i in range(self.num_experts):
-                    expert_name = f"expert_{i}"
+                    expert_name = f"{activate_adapter_name}_expert_{i}"
                     lora_A = self.lora_A[expert_name]
                     lora_B = self.lora_B[expert_name]
                     scaling = self.scaling[expert_name]

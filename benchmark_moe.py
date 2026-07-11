@@ -26,7 +26,7 @@ parser.add_argument("--lora-path", type=str, default=None, help="Path to the LoR
 parser.add_argument("--enable-model-cpu-offload", action="store_true", help="Enable CPU offloading for the model")
 parser.add_argument("--edit-file", type=str, help="edit.json file containing benchmark data")
 parser.add_argument("--data-root", type=str, help="Root path to input data")
-parser.add_argument("--saved-suffix-model", type=str, help="Suffix to model name in saving path")
+parser.add_argument("--saved-suffix-model", type=str, default="", help="Suffix to model name in saving path")
 parser.add_argument("--top-k", type=int, default=1, help="Override top_k for MoE routing (must be <= num_experts)")
 parser.add_argument("--save-every", type=int, default=1, help="Write ablation CSV every N images; -1 to save only at the end")
 parser.add_argument("--token-stride", type=int, default=1, help="Sample every N tokens when collecting ablation data")
@@ -50,7 +50,8 @@ args = parser.parse_args()
 #         )
 
 pipe = FluxKontextPipeline.from_pretrained(args.flux_path, torch_dtype=torch.bfloat16)
-# pipe.load_lora_weights(args.lora_path)
+if args.lora_path is not None:
+    pipe.load_lora_weights(args.lora_path)
 
 # if args.top_k is not None:
 #     for module in pipe.transformer.modules():
@@ -117,6 +118,7 @@ for index, edit in enumerate(tqdm(edits)):
         width=width,
         num_inference_steps=28,
         generator=torch.Generator("cpu").manual_seed(args.seed) if args.seed is not None else None,
+        guidance_scale=2.5
     )
 
     result_image = pipe_output.images[0]

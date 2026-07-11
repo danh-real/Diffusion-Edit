@@ -16,7 +16,7 @@ train:
   sample_interval: 1000
   max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/train_moe_lora"
+  save_path: "runs/train_moe_lora_stage1overfit"
 
   condition_type: "edit"
   dataset:
@@ -29,7 +29,7 @@ train:
     padding: 8
     drop_text_prob: 0.1
     drop_image_prob: 0.1
-    specific_task: null
+    specific_task: [ "add", "remove", "action_change", "style_change", "background_change", "rotation_change" ]
 
   wandb:
     project: "Edit"
