@@ -859,12 +859,6 @@ class Linear(nn.Module, LoraLayer):
         expert_rank: int = 4,
         expert_alpha: float = 4,
     ):
-        expert_list = []
-        for i in range(num_experts):
-            # Prefixed with adapter_name so get_peft_model_state_dict's `adapter_name in k`
-            # filter (it otherwise strips everything not tagged with the active adapter)
-            # picks up expert weights too, not just the router.
-            expert_list.append(f"{adapter_name}_expert_{i}")
         # This code works for linear layers, override for other layer types
         if r <= 0 or num_experts <= 0 or expert_rank <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
@@ -879,11 +873,20 @@ class Linear(nn.Module, LoraLayer):
             lora_dropout_layer = nn.Identity()
 
         self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
-        # Actual trainable parameters experts in dict
+        # Actual trainable parameters experts in dict. lora_A/lora_B are nested one
+        # nn.ModuleDict of experts per adapter_name, rather than flat
+        # "{adapter_name}_expert_{i}" keys, so that set_adapter's per-key requires_grad
+        # loop (which matches keys against plain adapter names) sees "adapter_name" and
+        # unfreezes every expert through its recursive .parameters() walk. With flat
+        # keys, "{adapter_name}_expert_{i}" never equals "adapter_name", so experts were
+        # never marked trainable by set_adapter and never actually trained.
+        self.lora_A[adapter_name] = nn.ModuleDict()
+        self.lora_B[adapter_name] = nn.ModuleDict()
         for i in range(num_experts):
-            expert_name = expert_list[i]
-            self.lora_A[expert_name] = nn.Linear(self.in_features, expert_rank, bias=False)
-            self.lora_B[expert_name] = nn.Linear(expert_rank, self.out_features, bias=lora_bias)
+            expert_key = f"expert_{i}"
+            expert_name = f"{adapter_name}_expert_{i}"
+            self.lora_A[adapter_name][expert_key] = nn.Linear(self.in_features, expert_rank, bias=False)
+            self.lora_B[adapter_name][expert_key] = nn.Linear(expert_rank, self.out_features, bias=lora_bias)
             self.r[expert_name] = expert_rank
             self.lora_alpha[expert_name] = expert_alpha
             self.lora_bias[expert_name] = lora_bias
@@ -914,17 +917,25 @@ class Linear(nn.Module, LoraLayer):
             with gather_params_ctx(self.get_base_layer().weight):
                 self.loftq_init(adapter_name)
         elif init_lora_weights == "eva":
-            nn.init.zeros_(self.lora_B[adapter_name].weight)
-        elif init_lora_weights:
-            self.reset_lora_parameters(adapter_name, init_lora_weights)
             for i in range(num_experts):
-                expert_name = f"{adapter_name}_expert_{i}"
-                self.reset_lora_parameters(expert_name, init_lora_weights)
+                nn.init.zeros_(self.lora_B[adapter_name][f"expert_{i}"].weight)
+        elif init_lora_weights:
+            # reset_lora_parameters() only knows flat adapter_name -> nn.Linear lookups,
+            # so it can't reach the nested per-expert modules; init them directly here.
+            for i in range(num_experts):
+                expert_A = self.lora_A[adapter_name][f"expert_{i}"]
+                expert_B = self.lora_B[adapter_name][f"expert_{i}"]
+                if init_lora_weights is True:
+                    nn.init.kaiming_uniform_(expert_A.weight, a=math.sqrt(5))
+                elif init_lora_weights.lower() == "gaussian":
+                    nn.init.normal_(expert_A.weight, std=1 / expert_rank)
+                else:
+                    raise ValueError(f"Unknown initialization {init_lora_weights=}")
+                nn.init.zeros_(expert_B.weight)
+                if lora_bias:
+                    nn.init.zeros_(expert_B.bias)
         # call this before dora_init
         self._move_adapter_to_device_of_base_layer(adapter_name)
-        for i in range(num_experts):
-            expert_name = expert_list[i]
-            self._move_adapter_to_device_of_base_layer(expert_name)
 
         if use_dora:
             self.dora_init(adapter_name)
@@ -932,8 +943,7 @@ class Linear(nn.Module, LoraLayer):
         else:
             self.use_dora[adapter_name] = False
 
-        
-        self.set_adapter(self.active_adapters+expert_list)
+        self.set_adapter(self.active_adapters)
 
     def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
         """
@@ -1168,8 +1178,8 @@ class Linear(nn.Module, LoraLayer):
 
                 for i in range(self.num_experts):
                     expert_name = f"{activate_adapter_name}_expert_{i}"
-                    lora_A = self.lora_A[expert_name]
-                    lora_B = self.lora_B[expert_name]
+                    lora_A = self.lora_A[activate_adapter_name][f"expert_{i}"]
+                    lora_B = self.lora_B[activate_adapter_name][f"expert_{i}"]
                     scaling = self.scaling[expert_name]
                     dropout = self.lora_dropout[expert_name]
 
@@ -1212,8 +1222,8 @@ class Linear(nn.Module, LoraLayer):
                 # 应用专家
                 for i in range(self.num_experts):
                     expert_name = f"{activate_adapter_name}_expert_{i}"
-                    lora_A = self.lora_A[expert_name]
-                    lora_B = self.lora_B[expert_name]
+                    lora_A = self.lora_A[activate_adapter_name][f"expert_{i}"]
+                    lora_B = self.lora_B[activate_adapter_name][f"expert_{i}"]
                     scaling = self.scaling[expert_name]
                     dropout = self.lora_dropout[expert_name]
                     result += lora_B(lora_A(dropout(x))) * scaling * torch.unsqueeze(route_weight[:,:,i], -1)
