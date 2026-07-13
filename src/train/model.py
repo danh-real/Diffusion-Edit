@@ -90,6 +90,15 @@ class OminiModel(L.LightningModule):
             print('[debug] use OFFSET NOISE.')
             
         self.lora_layers = self.init_lora(lora_path, lora_config)
+        
+        # Freeze the transformer
+        self.transformer.requires_grad_(False)
+
+        # Set the trainable parameters
+        if self.model_config['train_route_only']:
+            self.trainable_params = [p for name, p in self.lora_layers if "lora_route" in name]
+        else:
+            self.trainable_params = [p for name, p in self.lora_layers]
 
         self.to(device).to(dtype)
 
@@ -133,16 +142,8 @@ class OminiModel(L.LightningModule):
             torch.save(self.text_encoder.text_model.embeddings.token_embedding, os.path.join(path, "clip_embedding.pth"))
 
     def configure_optimizers(self):
-        # Freeze the transformer
-        self.transformer.requires_grad_(False)
         opt_config = self.optimizer_config
-
-        # Set the trainable parameters
-        if self.model_config['train_route_only']:
-            self.trainable_params = [p for name, p in self.lora_layers if "lora_route" in name]
-        else:
-            self.trainable_params = [p for name, p in self.lora_layers]
-
+        
         # Unfreeze trainable parameters
         for p in self.trainable_params:
             p.requires_grad_(True)
