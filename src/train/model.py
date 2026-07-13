@@ -100,6 +100,10 @@ class OminiModel(L.LightningModule):
         else:
             self.trainable_params = [p for name, p in self.lora_layers]
 
+        # Unfreeze trainable parameters
+        for p in self.trainable_params:
+            p.requires_grad_(True)
+
         self.to(device).to(dtype)
 
     def init_lora(self, lora_path: str, lora_config: dict):
@@ -143,10 +147,6 @@ class OminiModel(L.LightningModule):
 
     def configure_optimizers(self):
         opt_config = self.optimizer_config
-        
-        # Unfreeze trainable parameters
-        for p in self.trainable_params:
-            p.requires_grad_(True)
 
         # Initialize the optimizer
         if opt_config["type"] == "AdamW":
