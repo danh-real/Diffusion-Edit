@@ -3,6 +3,7 @@ from diffusers.pipelines import FluxPipeline, FluxKontextPipeline, FluxKontextIn
 from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
 import torch
 from peft import LoraConfig, get_peft_model_state_dict
+from safetensors.torch import load_file
 import os
 import prodigyopt
 
@@ -10,6 +11,32 @@ from flux.transformer import tranformer_forward
 from flux.condition import Condition
 from flux.pipeline_tools import encode_images, encode_images_fill, encode_images_kontext, prepare_text_input
 from .rl_utils import set_fixed_routing, clear_fixed_routing
+
+
+def _remap_saved_state_dict(saved_state_dict, model, adapter_name="default"):
+    """Reverse get_peft_model_state_dict's adapter-name stripping against the real model keys.
+
+    get_peft_model_state_dict strips an exact ".{adapter_name}" segment immediately before
+    ".weight" (e.g. "x_embedder.lora_A.default.weight" -> "x_embedder.lora_A.weight"), but
+    leaves MoE expert keys alone since they're named "default_expert_0" etc, not "default" —
+    an inexact match. So each saved key either already matches a model key as-is (experts,
+    router) or needs ".{adapter_name}" re-inserted before ".weight" (everything else). This
+    checks the real key set instead of assuming one or the other, so it doesn't silently
+    produce a malformed double-adapter key path the way peft's own set_peft_model_state_dict
+    does when it blindly re-inserts ".{adapter_name}" into already-adapter-tagged keys.
+    """
+    model_keys = set(model.state_dict().keys())
+    remapped = {}
+    for k, v in saved_state_dict.items():
+        if k in model_keys:
+            remapped[k] = v
+        else:
+            prefix, last = k.rsplit(".", 1)
+            candidate = f"{prefix}.{adapter_name}.{last}"
+            if candidate not in model_keys:
+                raise KeyError(f"Could not map saved key {k!r} to a model key")
+            remapped[candidate] = v
+    return remapped
 
 
 class OminiModel(L.LightningModule):
@@ -69,13 +96,29 @@ class OminiModel(L.LightningModule):
     def init_lora(self, lora_path: str, lora_config: dict):
         assert lora_path or lora_config
         if lora_path:
-            # TODO: Implement this
-            raise NotImplementedError
+            # A generic self.flux_kontext_pipe.load_lora_weights(lora_path) won't work here:
+            # it infers a plain LoraConfig from tensor shapes/key names, which cannot recover
+            # num_experts/expert_rank/top_k or recognize the expert_0..N/lora_route key layout
+            # our custom peft fork uses for MoE. Rebuild the adapter from lora_config (the same
+            # config the checkpoint was trained with) before loading its raw weights.
+            assert lora_config, "lora_config is required to rebuild the adapter shape for lora_path"
+            self.transformer.add_adapter(LoraConfig(**lora_config))
+
+            state_dict = load_file(os.path.join(lora_path, "pytorch_lora_weights.safetensors"))
+            state_dict = {k.removeprefix("transformer."): v for k, v in state_dict.items()}
+            state_dict = _remap_saved_state_dict(state_dict, self.transformer)
+            missing, unexpected = self.transformer.load_state_dict(state_dict, strict=False)
+            if unexpected:
+                raise RuntimeError(f"Unexpected keys loading LoRA checkpoint: {unexpected}")
+
+            lora_layers = filter(
+                lambda p: p[1].requires_grad, self.transformer.named_parameters()
+            )
         else:
             self.transformer.add_adapter(LoraConfig(**lora_config))
             # TODO: Check if this is correct (p.requires_grad)
             lora_layers = filter(
-                lambda p: p.requires_grad, self.transformer.parameters()
+                lambda p: p[1].requires_grad, self.transformer.named_parameters()
             )
         return list(lora_layers)
 
@@ -95,7 +138,10 @@ class OminiModel(L.LightningModule):
         opt_config = self.optimizer_config
 
         # Set the trainable parameters
-        self.trainable_params = self.lora_layers
+        if self.model_config['train_route_only']:
+            self.trainable_params = [p for name, p in self.lora_layers if "lora_route" in name]
+        else:
+            self.trainable_params = [p for name, p in self.lora_layers]
 
         # Unfreeze trainable parameters
         for p in self.trainable_params:

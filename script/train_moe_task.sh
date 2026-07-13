@@ -3,7 +3,7 @@
 # usage: ./train.sh [CONFIG_FILE] [PORT]
 # example: ./train.sh normal_lora.yaml 41353
 
-CONFIG_FILE=${1:-"moe_lora_task.yaml"}
+CONFIG_FILE=${1:-"moe_lora_task_stage2.yaml"}
 PORT=${2:-41353}
 
 export XFL_CONFIG=./config/${CONFIG_FILE}

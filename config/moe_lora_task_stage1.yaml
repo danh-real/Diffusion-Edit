@@ -1,4 +1,5 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
+lora_path: null
 dtype: "bfloat16"
 
 model:
@@ -6,7 +7,8 @@ model:
   add_cond_attn: false
   latent_lora: false
   use_sep: false
-  use_type_embedding: true
+  use_type_embedding: false
+  train_route_only: false
 
 train:
   batch_size: 1

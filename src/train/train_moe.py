@@ -137,6 +137,7 @@ def main():
     # Initialize model
     trainable_model = OminiModel(
         flux_fill_id=config["flux_path"],
+        lora_path=config["lora_path"],
         lora_config=training_config["lora_config"],
         device=f"cuda",
         dtype=getattr(torch, config["dtype"]),
