@@ -12,9 +12,9 @@ export TOKENIZERS_PARALLELISM=true
 export PYTHONPATH=.
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-# Debugging variable
-export NCCL_DEBUG=INFO
-export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
-export TORCH_DISTRIBUTED_DEBUG=DETAIL
+# # Debugging variable
+# export NCCL_DEBUG=INFO
+# export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+# export TORCH_DISTRIBUTED_DEBUG=DETAIL
 
 accelerate launch --main_process_port ${PORT} -m src.train.train_moe
