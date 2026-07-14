@@ -819,6 +819,31 @@ class LoraConfig(PeftConfig):
             )
         },
     )
+    routing_choice: str = field(
+        default="tc",
+        metadata={
+            "help": (
+                "The MoE routing strategy for lora_route. One of: 'tc' (token-choice, "
+                "each token independently selects its top_k experts), 'ec' (expert-choice, "
+                "each expert selects its top tokens up to a capacity, so token load per "
+                "expert is balanced by construction), or 'race' (expert race, experts "
+                "compete for tokens and routing is resolved by comparing expert scores "
+                "across the batch rather than per-token top_k)."
+            )
+        }
+    )
+    routing_act: str = field(
+        default="softmax",
+        metadata={
+            "help": (
+                "The activation function applied to the selected top-k routing logits "
+                "to turn them into expert combination weights. One of: 'softmax' "
+                "(normalize the selected logits so they sum to 1), 'sigmoid' (apply "
+                "elementwise sigmoid, so weights are independent and not normalized to "
+                "sum to 1), or 'identity' (use the raw logits as weights, unnormalized)."
+            )
+        }
+    )
 
     def to_dict(self):
         """

@@ -206,7 +206,7 @@ class TrainingCallback(L.Callback):
                     ).images[0]
                     image.save(os.path.join(save_path, f'flux-kontext-test-{self.total_steps}-{i}-{condition_type}.jpg'))
                 except:
-                    continue
+                    print("Fail to generate image!!!")
             else:
                 combined_image = Image.new('RGB', (test_image.size[0] * 2, test_image.size[1]))
                 combined_image.paste(test_image, (0, 0))

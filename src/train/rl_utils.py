@@ -558,3 +558,84 @@ def load_balancing_loss_func(router_probs: torch.Tensor, expert_indices: torch.T
 
     router_prob_per_group_and_expert = torch.mean(router_probs, axis=-2)
     return torch.mean(tokens_per_group_and_expert * router_prob_per_group_and_expert) * (num_experts**2)
+
+
+def router_similarity_loss_func(
+    router_probs: torch.Tensor, mask: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    r"""
+    Router similarity loss from "Expert Race: A Flexible Routing Strategy for Scaling Diffusion
+    Transformer with Mixture of Experts" (arXiv:2503.16057), section 5.2, Eq. (9)-(11).
+
+    Generalizes load_balancing_loss_func from constraining individual expert utilization to
+    constraining pairwise expert co-selection, penalizing experts whose token-selection patterns
+    are redundant (collapsing e.g. a 2-in-4 MoE into an effective 1-in-2) even when the per-expert
+    load is already balanced.
+
+    Args:
+        router_probs: Softmax probabilities over experts, shape [T, E] (T = batch * seq_len tokens).
+        mask: Hard 0/1 (or bool) expert-selection indicator, shape [T, E]. Entry [t, i] is 1 iff
+            token t was actually routed to expert i this forward — pass the routing layer's own
+            selection (e.g. `layer.last_route_mask`), not a re-derived top-k, since the hard
+            assignment depends on routing_choice (token-choice / expert-choice / expert-race).
+
+    Returns:
+        Scalar router similarity loss. 1.0 for a uniformly random assignment (matches the paper's
+        sanity check in appendix B).
+    """
+    T, E = router_probs.shape
+    M = mask.to(router_probs.dtype)  # [T, E]
+    P = router_probs  # [T, E]
+
+    m_corr = M.t() @ M  # [E, E], M'_{i,j}: token co-occurrence count for experts i, j
+    p_corr = P.t() @ P  # [E, E], P'_{i,j}: soft joint-selection probability for experts i, j
+
+    eye = torch.eye(E, device=router_probs.device, dtype=torch.bool)
+    diag = m_corr.diagonal()
+    off_diag = m_corr.masked_fill(eye, 0.0)
+
+    w_diag = diag / (diag.sum() + eps) * E
+    w_off_diag = off_diag / (off_diag.sum() + eps) * (E * E - E)
+    weight = torch.diag(w_diag) + w_off_diag  # W(i, j) from Eq. (11)
+
+    return (weight * p_corr).sum() / T
+
+
+def compute_router_similarity_loss(
+    model: nn.Module,
+    routing_logits: Dict[int, torch.Tensor],
+) -> torch.Tensor:
+    """
+    Compute the router similarity loss (arXiv:2503.16057, Eq. 9-11) from logits captured via
+    capture_routing_logits, averaged over MoE layers.
+
+    Unlike compute_aux_losses' z-loss/load-balancing loss — which re-derive a per-token top-k
+    mask from the raw logits, only valid for token-choice routing — this reads each layer's own
+    `last_route_mask`, the actual hard selection `infer_route_weight` produced this forward, so
+    it's correct regardless of routing_choice (token-choice, expert-choice, or expert-race).
+    """
+    sim_losses: List[torch.Tensor] = []
+    last_logits: Optional[torch.Tensor] = None
+
+    for layer in _moe_layers(model):
+        adapter_name = layer.active_adapters[0]
+        lid = id(layer.lora_route[adapter_name])
+        if lid not in routing_logits or layer.last_route_mask is None:
+            continue
+        logits = routing_logits[lid]  # [B, L, E], has grad
+        mask = layer.last_route_mask  # [B, L, E], bool
+
+        B, L, E = logits.shape
+        router_probs = F.softmax(logits, dim=-1).reshape(B * L, E)
+        flat_mask = mask.reshape(B * L, E)
+
+        sim_losses.append(router_similarity_loss_func(router_probs, flat_mask))
+        last_logits = logits
+
+    if not sim_losses:
+        return (
+            torch.zeros(1, device=last_logits.device, dtype=last_logits.dtype).squeeze()
+            if last_logits is not None
+            else torch.zeros(1).squeeze()
+        )
+    return torch.stack(sim_losses).mean()

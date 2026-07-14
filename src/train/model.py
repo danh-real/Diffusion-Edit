@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 import lightning as L
 from diffusers.pipelines import FluxPipeline, FluxKontextPipeline, FluxKontextInpaintPipeline
 from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
@@ -10,7 +12,7 @@ import prodigyopt
 from flux.transformer import tranformer_forward
 from flux.condition import Condition
 from flux.pipeline_tools import encode_images, encode_images_fill, encode_images_kontext, prepare_text_input
-from .rl_utils import set_fixed_routing, clear_fixed_routing
+from .rl_utils import set_fixed_routing, clear_fixed_routing, capture_routing_logits, compute_router_similarity_loss
 
 
 def _remap_saved_state_dict(saved_state_dict, model, adapter_name="default"):
@@ -56,6 +58,9 @@ class OminiModel(L.LightningModule):
         # Initialize the LightningModule
         super().__init__()
         self.model_config = model_config
+        # Weight of the router similarity loss (arXiv:2503.16057, Eq. 9-11), which penalizes
+        # MoE experts that collapse into redundant duplicates of each other. 0 disables it.
+        self.router_similarity_coeff = self.model_config.get("router_similarity_coeff", 0.0)
 
         self.optimizer_config = optimizer_config
         self.task_expert_map = task_expert_map
@@ -216,17 +221,24 @@ class OminiModel(L.LightningModule):
 
         # Forward pass
         concat_dim = 1 if self.use_sequence_conditioning else 2
-        transformer_out = self.transformer(
-            hidden_states=torch.cat((x_t, x_cond), dim=concat_dim),
-            timestep=t,
-            guidance=guidance,
-            pooled_projections=pooled_prompt_embeds,
-            encoder_hidden_states=prompt_embeds,
-            txt_ids=text_ids,
-            img_ids=img_ids,
-            joint_attention_kwargs=None,
-            return_dict=False,
+        routing_logits = {}
+        capture_ctx = (
+            capture_routing_logits(self.transformer, routing_logits)
+            if self.router_similarity_coeff > 0
+            else nullcontext()
         )
+        with capture_ctx:
+            transformer_out = self.transformer(
+                hidden_states=torch.cat((x_t, x_cond), dim=concat_dim),
+                timestep=t,
+                guidance=guidance,
+                pooled_projections=pooled_prompt_embeds,
+                encoder_hidden_states=prompt_embeds,
+                txt_ids=text_ids,
+                img_ids=img_ids,
+                joint_attention_kwargs=None,
+                return_dict=False,
+            )
         pred = transformer_out[0]
         if self.use_sequence_conditioning:
             # extra condition tokens were appended after the target tokens; discard their
@@ -236,4 +248,10 @@ class OminiModel(L.LightningModule):
         # Compute loss
         loss = torch.nn.functional.mse_loss(pred, (x_1 - x_0), reduction="mean")
         self.last_t = t.mean().item()
+
+        if self.router_similarity_coeff > 0:
+            sim_loss = compute_router_similarity_loss(self.transformer, routing_logits)
+            self.last_router_similarity_loss = sim_loss.item()
+            loss = loss + self.router_similarity_coeff * sim_loss
+
         return loss

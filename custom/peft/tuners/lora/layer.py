@@ -116,6 +116,8 @@ class LoraLayer(BaseTunerLayer):
         self.lora_embedding_B = nn.ParameterDict({})
         # For Moe Lora
         self.lora_route = nn.ModuleDict({})
+        self.tau = nn.ParameterDict({}) # for race routing choice
+        self.last_route_mask = None  # hard expert-selection mask from the last infer_route_weight call, for aux losses
         # Mark the weight as unmerged
         self._disable_adapters = False
         self.merged_adapters = []
@@ -798,14 +800,7 @@ class Linear(nn.Module, LoraLayer):
                 adapter_name,
                 r,
                 lora_alpha=lora_alpha,
-                lora_dropout=config.lora_dropout,
-                init_lora_weights=config.init_lora_weights,
-                use_rslora=config.use_rslora,
-                use_dora=config.use_dora,
-                lora_bias=config.lora_bias,
-                num_experts=self.num_experts,
-                expert_rank=self.expert_rank,
-                expert_alpha=self.expert_alpha,
+                config=config,
             )
         else:
             self.moe_lora = False
@@ -815,11 +810,6 @@ class Linear(nn.Module, LoraLayer):
                 r,
                 lora_alpha=lora_alpha,
                 config=config,
-                # lora_dropout=lora_dropout,
-                # init_lora_weights=init_lora_weights,
-                # use_rslora=use_rslora,
-                # use_dora=use_dora,
-                # lora_bias=lora_bias,
             )
         self.is_target_conv_1d_layer = is_target_conv_1d_layer
 
@@ -850,15 +840,25 @@ class Linear(nn.Module, LoraLayer):
         adapter_name,
         r,
         lora_alpha,
-        lora_dropout,
-        init_lora_weights,
-        use_rslora,
-        use_dora: bool = False,
-        lora_bias: bool = False,
-        num_experts: int = 1,
-        expert_rank: int = 4,
-        expert_alpha: float = 4,
+        config
     ):
+        # Get arguments from config
+        lora_dropout = config.lora_dropout
+        init_lora_weights = config.init_lora_weights
+        use_rslora = config.use_rslora
+        use_dora = config.use_dora
+        lora_bias = config.lora_bias
+        routing_choice = config.routing_choice
+        routing_act = config.routing_act
+        num_experts = config.num_experts
+        expert_rank = config.expert_rank
+        expert_alpha = config.expert_alpha
+    
+        self.routing_mode = "greedy"
+        self.imposed_route_weight = None
+        self.routing_choice = routing_choice
+        self.routing_act = routing_act
+        
         # This code works for linear layers, override for other layer types
         if r <= 0 or num_experts <= 0 or expert_rank <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
@@ -871,15 +871,12 @@ class Linear(nn.Module, LoraLayer):
             lora_dropout_layer = nn.Dropout(p=lora_dropout)
         else:
             lora_dropout_layer = nn.Identity()
+            
+        if self.routing_choice == "race":
+            self.tau[adapter_name] = nn.Parameter(torch.zeros(1))
 
         self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
-        # Actual trainable parameters experts in dict. lora_A/lora_B are nested one
-        # nn.ModuleDict of experts per adapter_name, rather than flat
-        # "{adapter_name}_expert_{i}" keys, so that set_adapter's per-key requires_grad
-        # loop (which matches keys against plain adapter names) sees "adapter_name" and
-        # unfreezes every expert through its recursive .parameters() walk. With flat
-        # keys, "{adapter_name}_expert_{i}" never equals "adapter_name", so experts were
-        # never marked trainable by set_adapter and never actually trained.
+
         self.lora_A[adapter_name] = nn.ModuleDict()
         self.lora_B[adapter_name] = nn.ModuleDict()
         for i in range(num_experts):
@@ -895,11 +892,6 @@ class Linear(nn.Module, LoraLayer):
 
         self.lora_route[adapter_name] = nn.Linear(self.in_features, num_experts, bias=False)
         self.lora_bias[adapter_name] = lora_bias
-
-        # "replay" mode forces a specific expert (see set_fixed_routing/clear_fixed_routing
-        # in src/train/rl_utils.py) instead of using lora_route's own top-k choice.
-        self.routing_mode = "greedy"
-        self.imposed_route_weight = None
 
         if use_rslora:
             self.scaling[adapter_name] = expert_alpha / math.sqrt(expert_rank)
@@ -1135,46 +1127,16 @@ class Linear(nn.Module, LoraLayer):
                 result = self.base_layer(x, *args, **kwargs)
                 torch_result_dtype = result.dtype
                 activate_adapter_name = self.active_adapters[0]
+                
+                B, L, E = x.shape
+                route_weight = self.infer_route_weight(x, result.dtype)
 
-                if self.routing_mode == "replay" and self.imposed_route_weight is not None:
-                    # Forced expert (e.g. task->expert mapping): use the imposed one-hot
-                    # weight instead of lora_route's own choice, broadcasting it over
-                    # batch/sequence dims. Still evaluate lora_route and fold it in with a
-                    # zero-valued term so its parameters stay connected to the autograd
-                    # graph — under DDP (find_unused_parameters=False, the default), a
-                    # parameter that some steps never participates in backward() causes a
-                    # hang waiting on its gradient bucket, since routing_mode can differ
-                    # per batch/rank depending on which tasks are and aren't in the map.
-                    route_logits = self.lora_route[activate_adapter_name](x)
-
-                    top_k_probs = route_logits[:, :, self.imposed_route_weight]
-                    top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(result.dtype)
-                    top_k_indices = torch.tensor([[self.imposed_route_weight]], dtype=int).to(top_k_probs.device)
-                    top_k_indices = top_k_indices.repeat(top_k_probs.shape[0], top_k_probs.shape[1], 1)
-                    
-                    route_weight = torch.zeros_like(route_logits)
-                    route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
-                else:
-                    # 计算路由分数
-                    route_logits = self.lora_route[activate_adapter_name](x)
-
-                    # 获取 top-k，保持梯度流
-                    top_k_probs, top_k_indices = torch.topk(route_logits, k=self.top_k, dim=-1)
-
-                    top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(result.dtype)
-
-                    # 创建掩码并应用
-                    route_weight = torch.zeros_like(route_logits)
-                    route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
-                    # 计算 softmax，topk之外的weight应该是0
-
-                # 应用专家 (sparse dispatch: gather only the tokens routed to each expert
+                # (sparse dispatch: gather only the tokens routed to each expert
                 # instead of running every expert over the full sequence and zeroing out
                 # the unselected tokens' contribution)
-                B, T, _ = x.shape
-                x_flat = x.reshape(B * T, -1)
-                route_weight_flat = route_weight.reshape(B * T, self.num_experts)
-                result = result.reshape(B * T, -1)
+                x_flat = x.reshape(B * L, -1)
+                route_weight_flat = route_weight.reshape(B * L, self.num_experts)
+                result = result.reshape(B * L, -1)
 
                 for i in range(self.num_experts):
                     expert_name = f"{activate_adapter_name}_expert_{i}"
@@ -1186,19 +1148,12 @@ class Linear(nn.Module, LoraLayer):
                     weight_i = route_weight_flat[:, i]
                     idx = weight_i.nonzero(as_tuple=True)[0]
 
-                    # Always run the (possibly empty) gathered batch through lora_A/lora_B —
-                    # never skip when idx is empty. Under DDP (find_unused_parameters=False,
-                    # the default), an expert that gets zero tokens this step/rank would
-                    # otherwise never appear in that backward() call, and training hangs
-                    # waiting on a gradient bucket that's never produced. An empty-batch
-                    # forward still connects the expert's parameters to the graph (grad ends
-                    # up all-zero, but present, not None), which is all DDP needs.
                     selected_x = x_flat.index_select(0, idx)
                     expert_out = lora_B(lora_A(dropout(selected_x))) * scaling
                     expert_out = expert_out * weight_i.index_select(0, idx).unsqueeze(-1)
                     result.index_add_(0, idx, expert_out.to(result.dtype))
 
-                result = result.reshape(B, T, -1).to(torch_result_dtype)
+                result = result.reshape(B, L, -1).to(torch_result_dtype)
 
             elif moe_type == "sequence_wise":
                 result = self.base_layer(x, *args, **kwargs)
@@ -1231,6 +1186,91 @@ class Linear(nn.Module, LoraLayer):
                 result = result.to(torch_result_dtype)
                     
         return result
+    
+    def infer_route_weight(self, x, dtype):
+        activate_adapter_name = self.active_adapters[0]
+        B, L, E = x.shape
+        
+        if self.routing_mode == "replay" and self.imposed_route_weight is not None:
+            route_logits = self.lora_route[activate_adapter_name](x)
+
+            top_k_probs = route_logits[:, :, self.imposed_route_weight]
+
+            if self.routing_act == "softmax":
+                top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(dtype)
+            elif self.routing_act == "sigmoid":
+                top_k_probs = torch.sigmoid(top_k_probs).to(dtype)
+            elif self.routing_act == "identity":
+                top_k_probs = top_k_probs
+                
+            top_k_indices = torch.tensor([[self.imposed_route_weight]], dtype=int).to(top_k_probs.device)
+            top_k_indices = top_k_indices.repeat(top_k_probs.shape[0], top_k_probs.shape[1], 1)
+
+            route_weight = torch.zeros_like(route_logits)
+            route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
+        else:
+            route_logits = self.lora_route[activate_adapter_name](x)
+            
+            if self.routing_choice == "tc":
+                flatten_logits = route_logits.reshape(B * L, E)
+                num_choice = self.top_k
+            elif self.routing_choice == "ec":
+                flatten_logits = route_logits.permute(0, 2, 1)
+                flatten_logits = flatten_logits.reshape(B * E, L)
+                num_choice = self.top_k * L // E
+            elif self.routing_choice == "race":
+                flatten_logits = route_logits.reshape(1, B * L * E)
+                num_choice = B * L * self.top_k
+
+            if self.routing_choice == "race":
+                # Threshold-based selection (instead of topk) so the EMA-smoothed
+                # threshold `tau` can be reused at inference without cross-sample batching.
+                tau = self.tau[activate_adapter_name]
+                if self.training:
+                    m = 0.9
+                    # kth-smallest with k = N - num_choice + 1 gives the num_choice-th largest value.
+                    kth_val = torch.kthvalue(
+                        flatten_logits, k=flatten_logits.shape[-1] - num_choice + 1, dim=-1
+                    ).values
+                    mask = flatten_logits >= kth_val
+                    with torch.no_grad():
+                        tau.copy_(m * tau + (1.0 - m) * kth_val.detach())
+                else:
+                    mask = flatten_logits >= tau
+
+                if self.routing_act == "softmax":
+                    gates = F.softmax(flatten_logits, dim=-1, dtype=torch.float32).to(dtype)
+                elif self.routing_act == "sigmoid":
+                    gates = torch.sigmoid(flatten_logits).to(dtype)
+                elif self.routing_act == "identity":
+                    gates = flatten_logits
+
+                route_weight = gates * mask.to(gates.dtype)
+            else:
+                top_k_probs, top_k_indices = torch.topk(flatten_logits, k=num_choice, dim=-1)
+
+                if self.routing_act == "softmax":
+                    top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(dtype)
+                elif self.routing_act == "sigmoid":
+                    top_k_probs = torch.sigmoid(top_k_probs).to(dtype)
+                elif self.routing_act == "identity":
+                    top_k_probs = top_k_probs
+
+                route_weight = torch.zeros_like(flatten_logits)
+                route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
+
+            if self.routing_choice == "ec":
+                route_weight = route_weight.reshape(B, E, L)
+                route_weight = route_weight.permute(0, 2, 1)
+            else:
+                route_weight = route_weight.reshape(B, L, E)
+
+        # Hard expert-selection indicator (paper's M) for this forward, correct
+        # regardless of routing_choice since it reads the actual gate output
+        # rather than re-deriving a top-k mask elsewhere. Used by
+        # rl_utils.compute_router_similarity_loss.
+        self.last_route_mask = route_weight != 0
+        return route_weight
 
     def supports_lora_conversion(self, adapter_name: str = "default") -> bool:
         return True
