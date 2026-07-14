@@ -10,6 +10,11 @@ export XFL_CONFIG=./config/${CONFIG_FILE}
 echo "Using config: $XFL_CONFIG"
 export TOKENIZERS_PARALLELISM=true
 export PYTHONPATH=.
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-# CUDA_VISIBLE_DEVICES=0 accelerate launch --main_process_port ${PORT} -m src.train.train_moe
-CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch --main_process_port ${PORT} -m src.train.train_moe
+# Debugging variable
+export NCCL_DEBUG=INFO
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+
+accelerate launch --main_process_port ${PORT} -m src.train.train_moe
