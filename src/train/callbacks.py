@@ -193,17 +193,20 @@ class TrainingCallback(L.Callback):
             if pl_module.use_sequence_conditioning:
                 # Kontext conditions on the reference image directly (no mask/diptych) —
                 # mirrors infer.py's inference call and the training data in data.py.
-                image = pl_module.flux_kontext_pipe(
-                    prompt=test_instruction[i],
-                    image=test_image,
-                    height=test_image.size[1],
-                    width=test_image.size[0],
-                    guidance_scale=2.5,
-                    num_inference_steps=28,
-                    max_sequence_length=512,
-                    generator=torch.Generator("cpu").manual_seed(666)
-                ).images[0]
-                image.save(os.path.join(save_path, f'flux-kontext-test-{self.total_steps}-{i}-{condition_type}.jpg'))
+                try:
+                    image = pl_module.flux_kontext_pipe(
+                        prompt=test_instruction[i],
+                        image=test_image,
+                        height=test_image.size[1],
+                        width=test_image.size[0],
+                        guidance_scale=2.5,
+                        num_inference_steps=28,
+                        max_sequence_length=512,
+                        generator=torch.Generator("cpu").manual_seed(666)
+                    ).images[0]
+                    image.save(os.path.join(save_path, f'flux-kontext-test-{self.total_steps}-{i}-{condition_type}.jpg'))
+                except:
+                    continue
             else:
                 combined_image = Image.new('RGB', (test_image.size[0] * 2, test_image.size[1]))
                 combined_image.paste(test_image, (0, 0))
