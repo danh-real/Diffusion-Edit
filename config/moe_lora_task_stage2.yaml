@@ -14,8 +14,8 @@ train:
   batch_size: 1
   accumulate_grad_batches: 8
   dataloader_workers: 4
-  save_interval: 1000
-  sample_interval: 1000
+  save_interval: 5000
+  sample_interval: 5000
   max_steps: 30000
   gradient_checkpointing: true
   save_path: "runs/task-specific-moe-lora-stage2combine-softmax"
@@ -23,8 +23,8 @@ train:
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/datasets/AnyEdit/train.json"
-    root_path: "/data/datasets"
+    json_path: "/data/sd/datasets/AnyEdit/train.json"
+    root_path: "/data/sd/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
@@ -36,6 +36,36 @@ train:
   wandb:
     project: "Edit"
     run_name: "task-specific-moe-lora-stage2combine-softmax"
+
+  # ── Router-level GRPO, reward from EditScore-8B (src/train/grpo_rollout.py) ────────────
+  # Present -> training_step calls grpo_step (supervised loss + GRPO term) instead of the
+  # plain supervised step(). RL always uses free routing, bypassing task_expert_map below
+  # (fixed routing and router-exploration are contradictory) -- see grpo_step's docstring.
+  rl:
+    num_rollouts: 2              # G — stochastic routing samples per input
+                                  # Lower -> faster/cheaper steps, higher-variance advantage estimate
+    num_sampling_steps: 12       # T — Euler denoising steps for the RL rollout only
+                                  # (independent of any inference-time step count)
+    stochastic_step_ratio: 0.3   # fraction of the T steps that route stochastically;
+                                  # the rest route greedily and contribute no policy gradient
+    clip_eps: 0.2                # PPO clip range
+    rl_coeff: 0.0                # weight of the GRPO policy-gradient loss
+    supervised_coeff: 1.0        # weight of the plain flow-matching loss, kept for stability
+    load_balancing_coeff: 0.001  # Switch-Transformer load-balancing loss on the sampled steps
+    z_coeff: 0.001                # router z-loss on the sampled steps
+
+    reward:
+      type: "editscore"
+      model_id: "ckpt/Qwen3-VL-8B-Instruct"
+      lora_id: "ckpt/EditScore-Qwen3-VL-8B-Instruct"
+      device: "cuda:0"           # separate device from the policy model if VRAM allows
+      dtype: "bfloat16"
+      k_ensemble: 1               # Avg@K judge passes per image (paper's self-ensemble); raise
+                                   # once the reward signal itself is validated (cost multiplies by K)
+      aggregation: "min"          # SC's two sub-scores (editing success, overediting) and PQ's
+                                   # two sub-scores (naturalness, artifacts) each collapse to a
+                                   # single scalar via min() rather than mean() -- stricter: an
+                                   # edit only gets credit if it isn't badly broken on either axis
 
   lora_config:
     r: 32

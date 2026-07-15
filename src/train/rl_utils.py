@@ -377,9 +377,11 @@ def compute_routing_log_prob_nograd(
     token positions (mask==True); non-stochastic positions are excluded so the
     ratio stays 1 for deterministic decisions.
 
-    Returns a detached scalar (same value as compute_routing_log_prob when
-    called with the same weights — the ratio starts at 1 and diverges as
-    accumulated gradient updates shift the current policy away from this anchor).
+    Returns a detached [B] tensor (one log-prob per batch item, NOT collapsed across the
+    batch — GRPO's advantage is per-sample, so the PPO ratio built from this must stay
+    per-sample too). Same values as compute_routing_log_prob when called with the same
+    weights — the ratio starts at 1 and diverges as accumulated gradient updates shift the
+    current policy away from this anchor.
     """
     layers = list(_moe_layers(model))
     if not layers:
@@ -415,9 +417,10 @@ def compute_routing_log_prob_nograd(
     if not layer_log_probs:
         dev = weight.device if weight is not None else torch.device("cpu")
         dtype = weight.dtype if weight is not None else torch.float32
-        return torch.zeros(1, device=dev, dtype=dtype).squeeze()
+        batch_size = next(iter(g_inputs.values())).shape[0] if g_inputs else 1
+        return torch.zeros(batch_size, device=dev, dtype=dtype)
 
-    return torch.stack(layer_log_probs, dim=0).mean(dim=0).mean()
+    return torch.stack(layer_log_probs, dim=0).mean(dim=0)
 
 
 def _route_linear(x_cpu: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
@@ -452,9 +455,10 @@ def compute_routing_log_prob(
     stochastic token positions (mask==True).  Non-stochastic positions were
     routed greedily so their contribution to the policy-gradient is zero.
 
-    Returns a scalar: mean over layers and batch of log P(action | state),
-    with gradient flowing only through lora_route.weight (and only through
-    stochastic token positions when g_masks is given).
+    Returns a [B] tensor: mean over layers of log P(action | state) per batch item
+    (per-sample, NOT collapsed to a scalar — see compute_routing_log_prob_nograd's
+    docstring for why), with gradient flowing only through lora_route.weight (and only
+    through stochastic token positions when g_masks is given).
     """
     layers = list(_moe_layers(model))
     if not layers:
@@ -496,9 +500,10 @@ def compute_routing_log_prob(
     if not layer_log_probs:
         dev = weight.device if weight is not None else torch.device("cpu")
         dtype = weight.dtype if weight is not None else torch.float32
-        return torch.zeros(1, dtype=dtype, device=dev).squeeze()
+        batch_size = next(iter(g_inputs.values())).shape[0] if g_inputs else 1
+        return torch.zeros(batch_size, dtype=dtype, device=dev)
 
-    return torch.stack(layer_log_probs, dim=0).mean(dim=0).mean()
+    return torch.stack(layer_log_probs, dim=0).mean(dim=0)
 
 
 def router_z_loss_func(router_logits: torch.Tensor) -> float:

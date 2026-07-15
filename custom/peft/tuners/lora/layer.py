@@ -858,6 +858,17 @@ class Linear(nn.Module, LoraLayer):
         self.imposed_route_weight = None
         self.routing_choice = routing_choice
         self.routing_act = routing_act
+
+        # RL-routing state (see infer_route_weight's "stochastic" branch and rl_utils.py).
+        # routing_mask: optional [B, L] bool set externally via rl_utils.set_routing_masks to
+        #   restrict which token positions get stochastic (vs. greedy) routing; None = all positions.
+        # stored_actions/_logits/_mask: populated only on a stochastic forward, consumed by
+        #   rl_utils.save_actions_batched / compute_routing_log_prob(_nograd) to build the GRPO loss.
+        self.routing_mask = None
+        self.stored_actions = None
+        self.stored_logits = None
+        self.stored_mask = None
+        self.stochastic_temperature = 1.0
         
         # This code works for linear layers, override for other layer types
         if r <= 0 or num_experts <= 0 or expert_rank <= 0:
@@ -1189,8 +1200,14 @@ class Linear(nn.Module, LoraLayer):
     
     def infer_route_weight(self, x, dtype):
         activate_adapter_name = self.active_adapters[0]
-        B, L, E = x.shape
-        
+
+        # Cleared unconditionally so a stale sample from a previous stochastic forward can't
+        # leak into rl_utils.save_actions_batched / compute_routing_log_prob* on a later
+        # greedy/replay forward; the stochastic branch below repopulates them when it runs.
+        self.stored_actions = None
+        self.stored_logits = None
+        self.stored_mask = None
+
         if self.routing_mode == "replay" and self.imposed_route_weight is not None:
             route_logits = self.lora_route[activate_adapter_name](x)
 
@@ -1210,7 +1227,7 @@ class Linear(nn.Module, LoraLayer):
             route_weight = route_weight.scatter_(-1, top_k_indices, top_k_probs)
         else:
             route_logits = self.lora_route[activate_adapter_name](x)
-            
+            B, L, E = route_logits.shape
             if self.routing_choice == "tc":
                 flatten_logits = route_logits.reshape(B * L, E)
                 num_choice = self.top_k
@@ -1247,7 +1264,35 @@ class Linear(nn.Module, LoraLayer):
 
                 route_weight = gates * mask.to(gates.dtype)
             else:
-                top_k_probs, top_k_indices = torch.topk(flatten_logits, k=num_choice, dim=-1)
+                if self.routing_mode == "stochastic" and self.routing_choice == "tc":
+                    # Gumbel-top-k: sample num_choice experts without replacement from the
+                    # categorical distribution defined by softmax(flatten_logits), instead of
+                    # always taking the greedy top-k. This is what makes routing an RL-trainable
+                    # stochastic action (see rl_utils.compute_routing_log_prob*, which score this
+                    # sampled `self.stored_actions` under lora_route to build the GRPO policy
+                    # gradient). Positions where self.routing_mask is False (or no mask is set,
+                    # meaning "route all positions stochastically") keep the noise contribution
+                    # so they behave identically to the mask=True case unless a mask is supplied.
+                    eps = 1e-20
+                    u = torch.rand_like(flatten_logits).clamp_(min=eps, max=1.0 - eps)
+                    gumbel_noise = -torch.log(-torch.log(u))
+                    if self.routing_mask is not None:
+                        mask_flat = self.routing_mask.reshape(B * L, 1).to(flatten_logits.dtype)
+                    else:
+                        mask_flat = torch.ones(B * L, 1, dtype=flatten_logits.dtype, device=flatten_logits.device)
+                    perturbed_logits = flatten_logits + gumbel_noise * self.stochastic_temperature * mask_flat
+                    _, top_k_indices = torch.topk(perturbed_logits, k=num_choice, dim=-1)
+                    # The combination WEIGHT still comes from the true (unperturbed) logits at the
+                    # sampled indices, so the forward computation for a given sampled action matches
+                    # what a greedy pass would compute for that same choice of experts -- only the
+                    # *choice itself* is stochastic (standard Gumbel-top-k sampling-without-replacement).
+                    top_k_probs = flatten_logits.gather(-1, top_k_indices)
+
+                    self.stored_actions = top_k_indices.reshape(B, L, num_choice).detach()
+                    self.stored_logits = flatten_logits.reshape(B, L, E).detach()
+                    self.stored_mask = (mask_flat.reshape(B, L) > 0).detach()
+                else:
+                    top_k_probs, top_k_indices = torch.topk(flatten_logits, k=num_choice, dim=-1)
 
                 if self.routing_act == "softmax":
                     top_k_probs = F.softmax(top_k_probs, dim=-1, dtype=torch.float32).to(dtype)

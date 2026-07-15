@@ -28,6 +28,7 @@ from .data import (
 )
 from .model import OminiModel
 from .callbacks import TrainingCallback, TimingCallback
+from .editscore_reward import EditScoreReward
 
 
 def get_rank():
@@ -134,6 +135,23 @@ def main():
         num_workers=training_config["dataloader_workers"],
     )
 
+    # Router-level GRPO reward model (see src/train/editscore_reward.py). Loaded once,
+    # in-process, frozen -- only instantiated when the config actually enables RL
+    # (rl_coeff > 0.0), so rl_config can stay in the yaml for a supervised-only run
+    # without paying for the EditScore VLM load.
+    rl_config = training_config.get("rl")
+    reward_model = None
+    if rl_config is not None and rl_config["rl_coeff"] > 0.0:
+        reward_cfg = rl_config.get("reward", {})
+        reward_model = EditScoreReward(
+            model_id=reward_cfg.get("model_id", "Qwen/Qwen3-VL-8B-Instruct"),
+            lora_id=reward_cfg.get("lora_id", "EditScore/EditScore-Qwen3-VL-8B-Instruct"),
+            device=reward_cfg.get("device", "cuda:0"),
+            dtype=getattr(torch, reward_cfg.get("dtype", "bfloat16")),
+            k_ensemble=reward_cfg.get("k_ensemble", 1),
+            aggregation=reward_cfg.get("aggregation", "min"),
+        )
+
     # Initialize model
     trainable_model = OminiModel(
         flux_fill_id=config["flux_path"],
@@ -146,6 +164,8 @@ def main():
         gradient_checkpointing=training_config.get("gradient_checkpointing", False),
         use_offset_noise=config["use_offset_noise"],
         task_expert_map=training_config.get("task_expert_map"),
+        rl_config=rl_config,
+        reward_model=reward_model,
     )
 
     # Callbacks for logging and saving checkpoints

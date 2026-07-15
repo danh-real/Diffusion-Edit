@@ -13,6 +13,7 @@ from flux.transformer import tranformer_forward
 from flux.condition import Condition
 from flux.pipeline_tools import encode_images, encode_images_fill, encode_images_kontext, prepare_text_input
 from .rl_utils import set_fixed_routing, clear_fixed_routing, capture_routing_logits, compute_router_similarity_loss
+from .grpo_rollout import RouterGRPOConfig, compute_router_grpo_loss
 
 
 def _remap_saved_state_dict(saved_state_dict, model, adapter_name="default"):
@@ -54,6 +55,8 @@ class OminiModel(L.LightningModule):
         gradient_checkpointing: bool = False,
         use_offset_noise: bool = False,
         task_expert_map: dict = None,
+        rl_config: dict = None,
+        reward_model=None,
     ):
         # Initialize the LightningModule
         super().__init__()
@@ -65,6 +68,18 @@ class OminiModel(L.LightningModule):
         self.optimizer_config = optimizer_config
         self.task_expert_map = task_expert_map
 
+        # Router-level GRPO (see grpo_rollout.py). `rl_config` is the training_config["rl"]
+        # dict from the yaml; when None (or rl_coeff <= 0), training_step falls back to
+        # plain supervised step().
+        self.run_grpo = (rl_config is not None and rl_config["rl_coeff"] > 0.0)
+        self.rl_config = rl_config
+        self.reward_model = reward_model
+        if rl_config is not None:
+            grpo_fields = {k: v for k, v in rl_config.items() if k in RouterGRPOConfig.__dataclass_fields__}
+            self.grpo_cfg = RouterGRPOConfig(**grpo_fields)
+            if self.run_grpo:
+                assert reward_model is not None, "rl_coeff > 0.0 but no reward_model was provided"
+        
         # Kontext-dev's transformer takes only the vanilla 64 packed-latent channels and
         # conditions by appending the reference image as extra sequence tokens. Fill-dev's
         # transformer is channel-extended (384) to take noisy+masked-image+mask concatenated
@@ -169,13 +184,23 @@ class OminiModel(L.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        step_loss = self.step(batch)
+        step_loss = self.grpo_step(batch) if self.run_grpo else self.step(batch)
         self.log_loss = (
             step_loss.item()
             if not hasattr(self, "log_loss")
             else self.log_loss * 0.95 + step_loss.item() * 0.05
         )
         return step_loss
+
+    def grpo_step(self, batch):
+        """Supervised flow-matching loss (respects task_expert_map, unchanged) plus a
+        router-level GRPO term scored by EditScore (always uses free routing -- RL needs
+        the router able to explore beyond whatever task_expert_map pins it to). See
+        grpo_rollout.compute_router_grpo_loss for the rollout/reward/PPO details."""
+        supervised_loss = self.step(batch)
+        rl_loss, stats = compute_router_grpo_loss(self, batch, self.reward_model, self.grpo_cfg)
+        self.last_grpo_stats = stats
+        return self.grpo_cfg.supervised_coeff * supervised_loss + rl_loss
 
     def step(self, batch):
         imgs = batch["image"]

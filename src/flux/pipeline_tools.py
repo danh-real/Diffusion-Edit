@@ -79,6 +79,19 @@ def encode_images_kontext(pipeline: FluxPipeline, target_image: Tensor, source_i
     return target_tokens, cond_tokens, img_ids
 
 
+def decode_latents(pipeline: FluxPipeline, latents: Tensor, height: int, width: int):
+    """Inverse of encode_images: packed latent tokens [B, N, C] -> List[PIL.Image].
+
+    height/width are the target PIXEL dimensions (matches the `target_image` passed to
+    encode_images_kontext), not the latent dimensions -- mirrors the decode tail of
+    FluxPipeline.__call__ (_unpack_latents -> unshift/unscale -> vae.decode -> postprocess).
+    """
+    latents = pipeline._unpack_latents(latents, height, width, pipeline.vae_scale_factor)
+    latents = (latents / pipeline.vae.config.scaling_factor) + pipeline.vae.config.shift_factor
+    image = pipeline.vae.decode(latents.to(pipeline.vae.dtype), return_dict=False)[0]
+    return pipeline.image_processor.postprocess(image, output_type="pil")
+
+
 def prepare_text_input(pipeline: FluxPipeline, prompts, max_sequence_length=512):
     # Turn off warnings (CLIP overflow)
     logger.setLevel(logging.ERROR)

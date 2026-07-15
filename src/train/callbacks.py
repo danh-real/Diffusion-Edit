@@ -106,6 +106,8 @@ class TrainingCallback(L.Callback):
             loss_value = outputs["loss"].item() * trainer.accumulate_grad_batches
             report_dict["loss"] = loss_value
             report_dict["t"] = pl_module.last_t
+            if hasattr(pl_module, "last_grpo_stats"):
+                report_dict.update({f"grpo/{k}": v for k, v in pl_module.last_grpo_stats.items()})
             wandb.log(report_dict)
 
         if self.total_steps % self.print_every_n_steps == 0:
