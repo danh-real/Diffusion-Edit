@@ -17,15 +17,15 @@ train:
   dataloader_workers: 4
   save_interval: 1000
   sample_interval: 1000
-  max_steps: 100000
-  gradient_checkpointing: true
-  save_path: "runs/train_moe_lora_stage1overfit_identity"
+  max_steps: 30000
+  gradient_checkpointing: false
+  save_path: "runs/task-specific-moe-lora-stage1overfit-softmax-AdamW"
 
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/sd/datasets/AnyEdit/train.json"
-    root_path: "/data/sd/datasets"
+    json_path: "/data/datasets/AnyEdit/train.json"
+    root_path: "/data/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
@@ -36,7 +36,7 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage1overfit-identity"
+    run_name: "task-specific-moe-lora-stage1overfit-softmax-AdamW"
 
   lora_config:
     r: 32
@@ -49,7 +49,7 @@ train:
     top_k: 3
     route_input_dim: 768
     routing_choice: "tc"
-    routing_act: "identity"
+    routing_act: "softmax"
 
   task_expert_map:
     add: [0, 6, 7]
@@ -60,9 +60,7 @@ train:
     rotation_change: [5, 6, 7]
 
   optimizer:
-    type: "Prodigy"
+    type: "AdamW"
     params:
-      lr: 1
-      use_bias_correction: true
-      safeguard_warmup: true
+      lr: 1e-4
       weight_decay: 0.01

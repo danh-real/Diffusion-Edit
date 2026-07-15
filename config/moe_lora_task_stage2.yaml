@@ -1,5 +1,5 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
-lora_path: "runs/train_moe_lora_stage1overfit/20260711-071003/ckpt/50000"
+lora_path: "runs/train_moe_lora_stage1overfit_softmax/20260714-010507/ckpt/30000"
 dtype: "bfloat16"
 
 model:
@@ -18,7 +18,7 @@ train:
   sample_interval: 1000
   max_steps: 30000
   gradient_checkpointing: true
-  save_path: "runs/train_moe_lora_stage2combine"
+  save_path: "runs/task-specific-moe-lora-stage2combine-softmax"
 
   condition_type: "edit"
   dataset:
@@ -35,7 +35,7 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine"
+    run_name: "task-specific-moe-lora-stage2combine-softmax"
 
   lora_config:
     r: 32
