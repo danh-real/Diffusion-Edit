@@ -18,7 +18,7 @@ train:
   save_interval: 1000
   sample_interval: 1000
   max_steps: 30000
-  gradient_checkpointing: false
+  gradient_checkpointing: true
   save_path: "runs/task-specific-moe-lora-stage1overfit-softmax-AdamW"
 
   condition_type: "edit"
