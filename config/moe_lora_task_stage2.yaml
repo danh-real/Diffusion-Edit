@@ -1,5 +1,5 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
-lora_path: "runs/train_moe_lora_stage1overfit_softmax/20260714-010507/ckpt/30000"
+lora_path: "runs/train_moe_lora_stage1overfit_identity/20260715-015206/ckpt/30000"
 dtype: "bfloat16"
 
 model:
@@ -18,7 +18,7 @@ train:
   sample_interval: 5000
   max_steps: 30000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage2combine-softmax"
+  save_path: "runs/task-specific-moe-lora-stage2combine-identity"
 
   condition_type: "edit"
   dataset:
@@ -35,24 +35,24 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine-softmax"
+    run_name: "task-specific-moe-lora-stage2combine-identity"
 
   # ── Router-level GRPO, reward from EditScore-8B (src/train/grpo_rollout.py) ────────────
   # Present -> training_step calls grpo_step (supervised loss + GRPO term) instead of the
   # plain supervised step(). RL always uses free routing, bypassing task_expert_map below
   # (fixed routing and router-exploration are contradictory) -- see grpo_step's docstring.
   rl:
-    num_rollouts: 8             # G — stochastic routing samples per input
-                                  # Lower -> faster/cheaper steps, higher-variance advantage estimate
+    num_rollouts: 8              # G — stochastic routing samples per input
+                                 # Lower -> faster/cheaper steps, higher-variance advantage estimate
     num_sampling_steps: 12       # T — Euler denoising steps for the RL rollout only
-                                  # (independent of any inference-time step count)
+                                 # (independent of any inference-time step count)
     stochastic_step_ratio: 0.3   # fraction of the T steps that route stochastically;
-                                  # the rest route greedily and contribute no policy gradient
+                                 # the rest route greedily and contribute no policy gradient
     clip_eps: 0.2                # PPO clip range
     rl_coeff: 0.0                # weight of the GRPO policy-gradient loss
     supervised_coeff: 1.0        # weight of the plain flow-matching loss, kept for stability
-    load_balancing_coeff: 0.001  # Switch-Transformer load-balancing loss on the sampled steps
-    z_coeff: 0.001                # router z-loss on the sampled steps
+    load_balancing_coeff: 0.0    # Switch-Transformer load-balancing loss on the sampled steps
+    z_coeff: 0.0                 # router z-loss on the sampled steps
 
     reward:
       type: "editscore"
@@ -77,6 +77,8 @@ train:
     expert_alpha: 32
     top_k: 3
     route_input_dim: 768
+    routing_choice: "tc"
+    routing_act: "identity"
 
   task_expert_map:
     add: [0, 6, 7]

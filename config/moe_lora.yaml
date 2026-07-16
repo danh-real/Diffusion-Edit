@@ -1,4 +1,5 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
+lora_path: null
 dtype: "bfloat16"
 
 model:
@@ -6,17 +7,19 @@ model:
   add_cond_attn: false
   latent_lora: false
   use_sep: false
-  use_type_embedding: true
+  use_type_embedding: false
+  train_route_only: false
+  router_similarity_coeff: 0.0001
 
 train:
   batch_size: 1
   accumulate_grad_batches: 8
   dataloader_workers: 4
-  save_interval: 1000
-  sample_interval: 1000
-  max_steps: 100000
+  save_interval: 2000
+  sample_interval: 2000
+  max_steps: 30000
   gradient_checkpointing: true
-  save_path: "runs/train_moe_lora"
+  save_path: "task-specific-moe-lora-race-identity"
 
   condition_type: "edit"
   dataset:
@@ -33,22 +36,23 @@ train:
 
   wandb:
     project: "Edit"
+    run_name: "task-specific-moe-lora-race-identity"
 
   lora_config:
     r: 32
     lora_alpha: 32
     init_lora_weights: "gaussian"
     target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
-    num_experts: 4
+    num_experts: 8
     expert_rank: 32
     expert_alpha: 32
-    top_k: 1
+    top_k: 2
     route_input_dim: 768
+    routing_choice: "race"
+    routing_act: "identity"
 
   optimizer:
-    type: "Prodigy"
+    type: "AdamW"
     params:
-      lr: 1
-      use_bias_correction: true
-      safeguard_warmup: true
-      weight_decay: 0.01
+      lr: 0.0001
+      weight_decay: 0.0
