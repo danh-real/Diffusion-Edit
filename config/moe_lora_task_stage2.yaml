@@ -42,7 +42,7 @@ train:
   # plain supervised step(). RL always uses free routing, bypassing task_expert_map below
   # (fixed routing and router-exploration are contradictory) -- see grpo_step's docstring.
   rl:
-    num_rollouts: 2              # G — stochastic routing samples per input
+    num_rollouts: 8             # G — stochastic routing samples per input
                                   # Lower -> faster/cheaper steps, higher-variance advantage estimate
     num_sampling_steps: 12       # T — Euler denoising steps for the RL rollout only
                                   # (independent of any inference-time step count)
