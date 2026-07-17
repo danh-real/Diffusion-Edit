@@ -19,7 +19,7 @@ train:
   sample_interval: 5000
   max_steps: 500000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage1overfit-identity-r256"
+  save_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128"
 
   condition_type: "edit"
   dataset:
@@ -36,11 +36,11 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage1overfit-identity-r256"
+    run_name: "task-specific-moe-lora-stage1overfit-identity-r128"
 
   lora_config:
-    r: 256
-    lora_alpha: 256
+    r: 128
+    lora_alpha: 128
     init_lora_weights: "gaussian"
     target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
     num_experts: 4
