@@ -143,8 +143,8 @@ with open(args.edit_file, "r") as f:
 
 for index, edit in enumerate(tqdm(edits)):
     
-    # if edit["edit_type"] != "resize":
-    #     continue
+    if edit["edit_type"] != "resize":
+        continue
 
     image_path = os.path.join(args.data_root, edit["input_image"])
     instruction = edit["instruction"]

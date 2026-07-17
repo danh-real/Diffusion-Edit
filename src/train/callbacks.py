@@ -161,31 +161,31 @@ class TrainingCallback(L.Callback):
     ):
 
         file_name = [
+            # "assets/coffee.png",
             "assets/coffee.png",
             "assets/coffee.png",
-            "assets/coffee.png",
-            "assets/coffee.png",
-            "assets/clock.jpg",
-            "assets/book.jpg",
+            # "assets/coffee.png",
+            # "assets/clock.jpg",
+            # "assets/book.jpg",
             "assets/monalisa.jpg",
-            "assets/oranges.jpg",
-            "assets/penguin.jpg",
-            "assets/vase.jpg",
-            "assets/room_corner.jpg",
+            # "assets/oranges.jpg",
+            # "assets/penguin.jpg",
+            # "assets/vase.jpg",
+            # "assets/room_corner.jpg",
         ]
 
         test_instruction = [
-            "Make the image look like it's from an ancient Egyptian mural.",
+            # "Make the image look like it's from an ancient Egyptian mural.",
             'get rid of the coffee bean.',
             'remove the cup.',
-            "Change it to look like it's in the style of an impasto painting.",
-            "Make this photo look like a comic book",
-            "Give this the look of a traditional Japanese woodblock print.",
+            # "Change it to look like it's in the style of an impasto painting.",
+            # "Make this photo look like a comic book",
+            # "Give this the look of a traditional Japanese woodblock print.",
             'delete the woman',
-            "Change the image into a watercolor painting.",
-            "Make it black and white.",
-            "Make it pop art.",
-            'the sofa is leather, and the wall is black',
+            # "Change the image into a watercolor painting.",
+            # "Make it black and white.",
+            # "Make it pop art.",
+            # 'the sofa is leather, and the wall is black',
         ]
 
         pl_module.flux_kontext_pipe.transformer.eval()
@@ -204,7 +204,7 @@ class TrainingCallback(L.Callback):
                         guidance_scale=2.5,
                         num_inference_steps=28,
                         max_sequence_length=512,
-                        generator=torch.Generator("cpu").manual_seed(666)
+                        generator=torch.Generator("cpu").manual_seed(42)
                     ).images[0]
                     image.save(os.path.join(save_path, f'flux-kontext-test-{self.total_steps}-{i}-{condition_type}.jpg'))
                 except:
