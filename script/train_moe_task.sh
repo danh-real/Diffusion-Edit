@@ -10,7 +10,7 @@ export XFL_CONFIG=./config/${CONFIG_FILE}
 echo "Using config: $XFL_CONFIG"
 export TOKENIZERS_PARALLELISM=true
 export PYTHONPATH=.
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 # # Debugging variable
 # export NCCL_DEBUG=INFO
