@@ -18,13 +18,13 @@ train:
   sample_interval: 5000
   max_steps: 30000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage2combine-identity"
+  save_path: "runs/task-specific-moe-lora-stage2combine-identity-1gpu"
 
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/sd/datasets/AnyEdit/train.json"
-    root_path: "/data/sd/datasets"
+    json_path: "/data/datasets/AnyEdit/train.json"
+    root_path: "/data/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
@@ -35,7 +35,7 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine-identity"
+    run_name: "task-specific-moe-lora-stage2combine-identity-1gpu"
 
   # ── Router-level GRPO, reward from EditScore-8B (src/train/grpo_rollout.py) ────────────
   # Present -> training_step calls grpo_step (supervised loss + GRPO term) instead of the
@@ -68,8 +68,8 @@ train:
                                    # edit only gets credit if it isn't badly broken on either axis
 
   lora_config:
-    r: 32
-    lora_alpha: 32
+    r: 256
+    lora_alpha: 256
     init_lora_weights: "gaussian"
     target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
     num_experts: 8
@@ -91,7 +91,7 @@ train:
   optimizer:
     type: "Prodigy"
     params:
-      lr: 1
+      lr: 0.1
       use_bias_correction: true
       safeguard_warmup: true
       weight_decay: 0.01

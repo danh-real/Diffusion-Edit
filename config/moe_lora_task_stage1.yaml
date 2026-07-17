@@ -15,11 +15,11 @@ train:
   batch_size: 1
   accumulate_grad_batches: 8
   dataloader_workers: 4
-  save_interval: 1000
-  sample_interval: 1000
-  max_steps: 30000
+  save_interval: 5000
+  sample_interval: 5000
+  max_steps: 500000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage1overfit-softmax-AdamW"
+  save_path: "runs/task-specific-moe-lora-stage1overfit-identity-r256"
 
   condition_type: "edit"
   dataset:
@@ -32,32 +32,29 @@ train:
     padding: 8
     drop_text_prob: 0.1
     drop_image_prob: 0.1
-    specific_task: [ "add", "remove", "action_change", "style_change", "background_change", "rotation_change" ]
+    specific_task: ["add", "remove", "replace"]
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage1overfit-softmax-AdamW"
+    run_name: "task-specific-moe-lora-stage1overfit-identity-r256"
 
   lora_config:
-    r: 32
-    lora_alpha: 32
+    r: 256
+    lora_alpha: 256
     init_lora_weights: "gaussian"
     target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
-    num_experts: 8
+    num_experts: 4
     expert_rank: 32
     expert_alpha: 32
-    top_k: 3
+    top_k: 2
     route_input_dim: 768
     routing_choice: "tc"
-    routing_act: "softmax"
+    routing_act: "identity"
 
   task_expert_map:
-    add: [0, 6, 7]
-    remove: [1, 6, 7]
-    action_change: [2, 6, 7]
-    style_change: [3, 6, 7]
-    background_change: [4, 6, 7]
-    rotation_change: [5, 6, 7]
+    add: [0, 3]
+    remove: [1, 3]
+    replace: [2, 3]
 
   optimizer:
     type: "AdamW"
