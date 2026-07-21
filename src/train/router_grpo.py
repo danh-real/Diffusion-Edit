@@ -1,8 +1,7 @@
 """
 Router-level GRPO: batched multi-rollout sampling + PPO loss, reward from EditScore.
 
-Scope (deliberately narrower than the EditScore/FlowGRPO paper's trajectory-level RL,
-see the design discussion this module implements):
+Scope (deliberately narrower than the EditScore/FlowGRPO paper's trajectory-level RL):
   - The flow-matching sampling PATH is a plain deterministic Euler integration of the
     trained velocity field v_theta -- no SDE / no per-step Gaussian noise term. Time runs
     from t=1 (pure noise, this repo's `x_1`) down to t=0 (data, `x_0`), matching model.py's
@@ -204,7 +203,7 @@ def compute_router_grpo_loss(
     """Router-level GRPO loss for one training step: sample G rollouts per input, score the
     decoded images with EditScore, PPO-clip the routing policy against the group-normalized
     advantage. Does NOT include the supervised flow-matching loss -- callers combine this with
-    `pl_module.step(batch)` themselves (see model.py's grpo_step), since RL always uses free
+    `pl_module.step(batch)` themselves (see model.py's rl_step), since RL always uses free
     routing (task_expert_map is bypassed here) while the supervised pass still respects it.
     """
     if not pl_module.use_sequence_conditioning:

@@ -844,6 +844,21 @@ class LoraConfig(PeftConfig):
             )
         }
     )
+    moe_companion_of: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Name of an existing MoE-LoRA adapter (one added with its own lora_route, "
+                "e.g. a frozen stage-1 adapter) that this adapter nests under. When set, "
+                "this adapter does not get its own router: instead it adds one extra "
+                "per-expert LoRA(A,B) pair per expert of `moe_companion_of`, reusing that "
+                "adapter's routing decision at each forward pass. Only meaningful on MoE-LoRA "
+                "layers (ff.net / proj_out); ignored elsewhere. `num_experts` must match the "
+                "base adapter's; `expert_rank`/`expert_alpha` may differ (e.g. a smaller rank "
+                "for a lightweight stage-2 refinement)."
+            )
+        },
+    )
 
     def to_dict(self):
         """

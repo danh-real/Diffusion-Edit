@@ -5,6 +5,7 @@ from diffusers.pipelines import FluxPipeline, FluxKontextPipeline, FluxKontextIn
 from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
 import torch
 from peft import LoraConfig, get_peft_model_state_dict
+from peft.tuners.tuners_utils import BaseTunerLayer
 from safetensors.torch import load_file
 import os
 import prodigyopt
@@ -13,7 +14,7 @@ from flux.transformer import tranformer_forward
 from flux.condition import Condition
 from flux.pipeline_tools import encode_images, encode_images_fill, encode_images_kontext, prepare_text_input
 from .rl_utils import set_fixed_routing, clear_fixed_routing, capture_routing_logits, compute_router_similarity_loss
-from .grpo_rollout import RouterGRPOConfig, compute_router_grpo_loss
+from .router_grpo import RouterGRPOConfig, compute_router_grpo_loss
 
 
 def _remap_saved_state_dict(saved_state_dict, model, adapter_name="default"):
@@ -48,6 +49,7 @@ class OminiModel(L.LightningModule):
         flux_fill_id: str,
         lora_path: str = None,
         lora_config: dict = None,
+        stage2_lora_config: dict = None,
         device: str = "cuda",
         dtype: torch.dtype = torch.bfloat16,
         model_config: dict = {},
@@ -68,16 +70,17 @@ class OminiModel(L.LightningModule):
         self.optimizer_config = optimizer_config
         self.task_expert_map = task_expert_map
 
-        # Router-level GRPO (see grpo_rollout.py). `rl_config` is the training_config["rl"]
-        # dict from the yaml; when None (or rl_coeff <= 0), training_step falls back to
-        # plain supervised step().
-        self.run_grpo = (rl_config is not None and rl_config["rl_coeff"] > 0.0)
+        # RL-based finetuning on top of the supervised flow-matching loss. `rl_config` is the
+        # training_config["rl"] dict from the yaml; when None (or rl_coeff <= 0), training_step
+        # falls back to plain supervised step(). Policy = only the MoE router's expert choice
+        # (router_grpo.py); gradient reaches nothing else, regardless of what's unfrozen below.
+        self.run_rl = (rl_config is not None and rl_config["rl_coeff"] > 0.0)
         self.rl_config = rl_config
         self.reward_model = reward_model
         if rl_config is not None:
-            grpo_fields = {k: v for k, v in rl_config.items() if k in RouterGRPOConfig.__dataclass_fields__}
-            self.grpo_cfg = RouterGRPOConfig(**grpo_fields)
-            if self.run_grpo:
+            rl_fields = {k: v for k, v in rl_config.items() if k in RouterGRPOConfig.__dataclass_fields__}
+            self.rl_cfg = RouterGRPOConfig(**rl_fields)
+            if self.run_rl:
                 assert reward_model is not None, "rl_coeff > 0.0 but no reward_model was provided"
         
         # Kontext-dev's transformer takes only the vanilla 64 packed-latent channels and
@@ -109,7 +112,7 @@ class OminiModel(L.LightningModule):
         if use_offset_noise:
             print('[debug] use OFFSET NOISE.')
             
-        self.lora_layers = self.init_lora(lora_path, lora_config)
+        self.lora_layers = self.init_lora(lora_path, lora_config, stage2_lora_config)
         
         # Freeze the transformer
         self.transformer.requires_grad_(False)
@@ -126,7 +129,7 @@ class OminiModel(L.LightningModule):
 
         self.to(device).to(dtype)
 
-    def init_lora(self, lora_path: str, lora_config: dict):
+    def init_lora(self, lora_path: str, lora_config: dict, stage2_lora_config: dict = None):
         assert lora_path or lora_config
         if lora_path:
             # A generic self.flux_kontext_pipe.load_lora_weights(lora_path) won't work here:
@@ -143,22 +146,50 @@ class OminiModel(L.LightningModule):
             missing, unexpected = self.transformer.load_state_dict(state_dict, strict=False)
             if unexpected:
                 raise RuntimeError(f"Unexpected keys loading LoRA checkpoint: {unexpected}")
-
-            lora_layers = filter(
-                lambda p: p[1].requires_grad, self.transformer.named_parameters()
-            )
         else:
             self.transformer.add_adapter(LoraConfig(**lora_config))
-            # TODO: Check if this is correct (p.requires_grad)
-            lora_layers = filter(
-                lambda p: p[1].requires_grad, self.transformer.named_parameters()
-            )
+
+        if stage2_lora_config is not None:
+            # stage2_lora_config's `moe_companion_of` (see LoraConfig /
+            # Linear.update_moe_companion_layer) should name the base adapter
+            # ("default") so stage 2 nests a small extra LoRA on top of each frozen
+            # stage-1 expert instead of getting its own router.
+            self.transformer.add_adapter(LoraConfig(**stage2_lora_config), adapter_name="stage2")
+            # add_adapter() above leaves only "stage2" active; MoE layers need both
+            # active simultaneously so moe_forward can pair stage2's per-expert LoRA
+            # with "default"'s routing decision (see moe_forward's root_adapters /
+            # companion_adapters). "default" must come first: several RL helpers
+            # (rl_utils.py, router_grpo.py) still assume active_adapters[0] is the
+            # router-owning adapter.
+            self.transformer.set_adapter(["default", "stage2"])
+            # set_adapter() unconditionally re-enables requires_grad on every active
+            # adapter's lora_A/lora_B (peft's BaseTunerLayer.set_adapter), including
+            # "default"'s -- recursing into its nested per-expert ModuleDicts too. Undo
+            # that for "default" (and its router/tau) so only "stage2" ends up in the
+            # `requires_grad` snapshot taken below.
+            for module in self.transformer.modules():
+                if isinstance(module, BaseTunerLayer):
+                    for adapter_dict_name in ("lora_A", "lora_B", "lora_route", "tau"):
+                        adapter_dict = getattr(module, adapter_dict_name, {})
+                        if "default" in adapter_dict:
+                            adapter_dict["default"].requires_grad_(False)
+
+        lora_layers = filter(
+            lambda p: p[1].requires_grad, self.transformer.named_parameters()
+        )
         return list(lora_layers)
 
     def save_lora(self, path: str):
+        # get_peft_model_state_dict defaults to adapter_name="default" and only returns
+        # that one adapter's keys -- with a stage-2 companion adapter also loaded, its
+        # weights would otherwise be silently dropped from the checkpoint.
+        lora_state_dict = get_peft_model_state_dict(self.transformer, adapter_name="default")
+        if "stage2" in self.transformer.peft_config:
+            lora_state_dict.update(get_peft_model_state_dict(self.transformer, adapter_name="stage2"))
+
         type(self.flux_kontext_pipe).save_lora_weights(
             save_directory=path,
-            transformer_lora_layers=get_peft_model_state_dict(self.transformer),
+            transformer_lora_layers=lora_state_dict,
             safe_serialization=True,
         )
         if self.model_config['use_sep']:
@@ -184,7 +215,7 @@ class OminiModel(L.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        step_loss = self.grpo_step(batch) if self.run_grpo else self.step(batch)
+        step_loss = self.rl_step(batch) if self.run_rl else self.step(batch)
         self.log_loss = (
             step_loss.item()
             if not hasattr(self, "log_loss")
@@ -192,15 +223,15 @@ class OminiModel(L.LightningModule):
         )
         return step_loss
 
-    def grpo_step(self, batch):
-        """Supervised flow-matching loss (respects task_expert_map, unchanged) plus a
-        router-level GRPO term scored by EditScore (always uses free routing -- RL needs
-        the router able to explore beyond whatever task_expert_map pins it to). See
-        grpo_rollout.compute_router_grpo_loss for the rollout/reward/PPO details."""
+    def rl_step(self, batch):
+        """Supervised flow-matching loss (respects task_expert_map, unchanged) plus a router-level
+        GRPO policy-gradient term scored by EditScore (see router_grpo.compute_router_grpo_loss).
+        RL always uses free/greedy routing rather than task_expert_map -- RL needs to explore
+        beyond whatever task_expert_map pins the supervised pass to."""
         supervised_loss = self.step(batch)
-        rl_loss, stats = compute_router_grpo_loss(self, batch, self.reward_model, self.grpo_cfg)
+        rl_loss, stats = compute_router_grpo_loss(self, batch, self.reward_model, self.rl_cfg)
         self.last_grpo_stats = stats
-        return self.grpo_cfg.supervised_coeff * supervised_loss + rl_loss
+        return self.rl_cfg.supervised_coeff * supervised_loss + rl_loss
 
     def step(self, batch):
         imgs = batch["image"]

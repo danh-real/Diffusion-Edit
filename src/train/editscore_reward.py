@@ -1,5 +1,5 @@
 """
-EditScore reward client for router-level GRPO (see rl_utils.py / grpo_rollout.py).
+EditScore reward client, used by router-level GRPO (see rl_utils.py / router_grpo.py).
 
 Wraps EditScore/EditScore-Qwen3-VL-8B-Instruct (https://github.com/VectorSpaceLab/EditScore)
 via the `editscore` package's own `EditScore` class (same usage as infer.py), which already
@@ -19,11 +19,37 @@ independent stochastic judge passes -- also handled inside `EditScore.evaluate()
 """
 from __future__ import annotations
 
+import contextlib
 from typing import List
 
 import torch
 from editscore import EditScore
 from PIL import Image
+from transformers import Qwen3VLForConditionalGeneration
+
+
+@contextlib.contextmanager
+def _pin_qwen3vl_device(device: torch.device):
+    """editscore's Qwen3VL backend hardcodes device_map="auto" internally (see
+    editscore/mllm_tools/qwen3vl.py's Qwen3VL.__init__), which balances the model across
+    every CUDA device with free memory at load time -- including whichever GPU the policy
+    model is about to load onto, since "auto" has no notion of "reserved for later". Monkeypatch
+    Qwen3VLForConditionalGeneration.from_pretrained for the duration of EditScore(...)
+    construction to force one explicit device instead of "auto". Scoped narrowly (context
+    manager, always restored) rather than patched permanently, since this is reaching into a
+    third-party package's internals.
+    """
+    original = Qwen3VLForConditionalGeneration.from_pretrained.__func__
+
+    def _pinned_from_pretrained(cls, *args, **kwargs):
+        kwargs["device_map"] = {"": device}
+        return original(cls, *args, **kwargs)
+
+    Qwen3VLForConditionalGeneration.from_pretrained = classmethod(_pinned_from_pretrained)
+    try:
+        yield
+    finally:
+        Qwen3VLForConditionalGeneration.from_pretrained = classmethod(original)
 
 
 class EditScoreReward:
@@ -40,30 +66,40 @@ class EditScoreReward:
         aggregation: str = "min",
         score_scale: float = 25.0,
     ):
-        # NOTE: the editscore package's Qwen3VL backend hardcodes device_map="auto" and
-        # bfloat16 internally, so `device`/`dtype` aren't threaded through to it -- kept
-        # here only for call-site/config compatibility with train_moe.py.
+        # NOTE: bfloat16 is still hardcoded inside editscore's own from_pretrained call
+        # (matches this repo's default `dtype: "bfloat16"` everywhere, so left alone) --
+        # `device` IS honored, via _pin_qwen3vl_device below.
         if aggregation != "min":
             raise ValueError(
                 f"aggregation={aggregation!r} is not supported: the editscore package's "
                 "evaluate() always collapses SC/PQ sub-scores via min()."
             )
         self.aggregation = aggregation
+        self.device = torch.device(device)
 
-        self.model = EditScore(
-            backbone="qwen3vl", # set to "qwen3vl_vllm" for faster inference
-            model_name_or_path=model_id,
-            lora_path=lora_id,
-            score_range=score_scale,
-            temperature=temperature,
-            num_pass=max(1, k_ensemble), # Avg@K self-ensembling
-        )
+        with _pin_qwen3vl_device(self.device):
+            self.model = EditScore(
+                backbone="qwen3vl", # set to "qwen3vl_vllm" for faster inference
+                model_name_or_path=model_id,
+                lora_path=lora_id,
+                score_range=score_scale,
+                temperature=temperature,
+                num_pass=max(1, k_ensemble), # Avg@K self-ensembling
+            )
 
     @torch.no_grad()
     def score(self, cond_img: Image.Image, out_img: Image.Image, instruction: str) -> float:
         """Sfinal = sqrt(S_SC * S_PQ) for one (input, output, instruction) triple,
         averaged over `k_ensemble` independent stochastic judge passes (Avg@K, paper eq. 1)."""
-        result = self.model.evaluate([cond_img, out_img], instruction)
+        # editscore's Qwen3VL.prepare_input hardcodes `inputs.to("cuda")` -- the ambient
+        # "current device", not the model's actual device -- so the current device must match
+        # self.device for the duration of this call, regardless of what the training loop (on a
+        # different GPU) left it set to. torch.cuda.device() saves/restores automatically.
+        device_ctx = (
+            torch.cuda.device(self.device) if self.device.index is not None else contextlib.nullcontext()
+        )
+        with device_ctx:
+            result = self.model.evaluate([cond_img, out_img], instruction)
         return float(result["overall"])
 
     def score_batch(

@@ -320,45 +320,6 @@ def capture_routing_logits(model: nn.Module, storage: Dict[int, torch.Tensor]):
             h.remove()
 
 
-def compute_aux_losses(
-    model: nn.Module,
-    routing_logits: Dict[int, torch.Tensor],
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Compute z-loss and load-balancing loss from logits captured via
-    capture_routing_logits. Returns (z_loss, lb_loss) averaged over MoE layers.
-
-    router_probs (full softmax over all experts) and expert_indices (top-k
-    selection, detached) are both derived from the captured logits so no extra
-    state needs to be stored on the layer.
-    """
-    z_losses:  List[torch.Tensor] = []
-    lb_losses: List[torch.Tensor] = []
-    last_logits: Optional[torch.Tensor] = None
-
-    for layer in _moe_layers(model):
-        adapter_name = layer.active_adapters[0]
-        lid = id(layer.lora_route[adapter_name])
-        if lid not in routing_logits:
-            continue
-        logits = routing_logits[lid]                          # [B, T, E], has grad
-        router_probs   = F.softmax(logits, dim=-1)            # [B, T, E]
-        expert_indices = logits.detach().topk(layer.top_k, dim=-1).indices  # [B, T, K]
-
-        z_losses.append(router_z_loss_func(logits))
-        lb_losses.append(load_balancing_loss_func(router_probs, expert_indices))
-        last_logits = logits
-
-    zero = (
-        torch.zeros(1, device=last_logits.device, dtype=last_logits.dtype).squeeze()
-        if last_logits is not None
-        else torch.zeros(1).squeeze()
-    )
-    z_loss  = torch.stack(z_losses).mean()  if z_losses  else zero
-    lb_loss = torch.stack(lb_losses).mean() if lb_losses else zero
-    return z_loss, lb_loss
-
-
 @torch.no_grad()
 def compute_routing_log_prob_nograd(
     model: nn.Module,

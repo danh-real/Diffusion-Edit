@@ -157,6 +157,7 @@ def main():
         flux_fill_id=config["flux_path"],
         lora_path=config["lora_path"],
         lora_config=training_config["lora_config"],
+        stage2_lora_config=training_config.get("stage2_lora_config"),
         device=f"cuda",
         dtype=getattr(torch, config["dtype"]),
         optimizer_config=training_config["optimizer"],
@@ -176,6 +177,12 @@ def main():
     )
 
     # Initialize trainer
+    # Devices/strategy are left on "auto" deliberately. `accelerate launch` runs us under
+    # torch elastic, so Lightning detects a TorchElasticEnvironment, treats the launcher as
+    # external and does NOT spawn its own subprocesses -- it just adopts the rank/device this
+    # process was already given by torch.cuda.set_device(rank) above. Pinning devices=1 here
+    # instead makes *every* rank pick GPU index 0, migrating rank 1's Flux replica off cuda:1
+    # onto cuda:0 and OOM-ing the card.
     trainer = L.Trainer(
         accumulate_grad_batches=training_config["accumulate_grad_batches"],
         callbacks=training_callbacks,

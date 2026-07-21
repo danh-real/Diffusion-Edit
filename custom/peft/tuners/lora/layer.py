@@ -117,6 +117,10 @@ class LoraLayer(BaseTunerLayer):
         # For Moe Lora
         self.lora_route = nn.ModuleDict({})
         self.tau = nn.ParameterDict({}) # for race routing choice
+        # adapter_name -> name of the MoE adapter (a key of self.lora_route) it nests
+        # under, for "companion" adapters added on top of an existing, frozen MoE
+        # adapter's experts (see LoraConfig.moe_companion_of / Linear.update_moe_companion_layer)
+        self.moe_companion_of: dict[str, str] = {}
         self.last_route_mask = None  # hard expert-selection mask from the last infer_route_weight call, for aux losses
         # Mark the weight as unmerged
         self._disable_adapters = False
@@ -162,6 +166,16 @@ class LoraLayer(BaseTunerLayer):
         config: LoraConfig,
         **kwargs,
     ) -> None:
+        moe_companion_of = getattr(config, "moe_companion_of", None)
+        if moe_companion_of is not None:
+            if not getattr(self, "moe_lora", False):
+                raise ValueError(
+                    f"Adapter {adapter_name!r} has moe_companion_of={moe_companion_of!r}, but this layer "
+                    f"({kwargs.get('target_name', '')!r}) is not a MoE-LoRA layer."
+                )
+            self.update_moe_companion_layer(adapter_name, r, lora_alpha, config)
+            return
+
         # collect the kwargs
         lora_dropout = config.lora_dropout
         init_lora_weights = config.init_lora_weights
@@ -948,6 +962,95 @@ class Linear(nn.Module, LoraLayer):
 
         self.set_adapter(self.active_adapters)
 
+    def update_moe_companion_layer(
+        self,
+        adapter_name,
+        r,
+        lora_alpha,
+        config,
+    ):
+        """Add a "companion" adapter that nests on top of an existing MoE adapter's
+        (frozen) experts: one extra per-expert LoRA(A,B) pair per expert of
+        `config.moe_companion_of`, no router of its own -- moe_forward reuses the base
+        adapter's routing decision for every companion adapter found among the active
+        adapters. Used e.g. for a stage-2 fine-tune that refines each stage-1 expert
+        individually while keeping the stage-1 router and experts frozen.
+        """
+        base_adapter = config.moe_companion_of
+        if base_adapter not in self.lora_route:
+            raise ValueError(
+                f"moe_companion_of={base_adapter!r} is not a MoE adapter on this layer (no router found; "
+                f"known MoE adapters here: {list(self.lora_route.keys())})."
+            )
+        if config.num_experts != self.num_experts:
+            raise ValueError(
+                f"Companion adapter {adapter_name!r} has num_experts={config.num_experts}, but the base adapter "
+                f"{base_adapter!r} it nests under has num_experts={self.num_experts}. These must match, since "
+                "moe_forward reuses the base adapter's per-expert routing weights for the companion."
+            )
+
+        lora_dropout = config.lora_dropout
+        init_lora_weights = config.init_lora_weights
+        use_rslora = config.use_rslora
+        lora_bias = config.lora_bias
+        # As with update_moe_layer, the generic `r`/`lora_alpha` args are ignored in
+        # favor of the MoE-specific config fields, which is what set the per-expert
+        # shape for the base adapter this one nests under.
+        expert_rank = config.expert_rank
+        expert_alpha = config.expert_alpha
+
+        if expert_rank <= 0:
+            raise ValueError(f"`expert_rank` should be a positive integer value but the value passed is {expert_rank}")
+
+        if lora_dropout > 0.0:
+            lora_dropout_layer = nn.Dropout(p=lora_dropout)
+        else:
+            lora_dropout_layer = nn.Identity()
+
+        self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
+        self.moe_companion_of[adapter_name] = base_adapter
+
+        self.lora_A[adapter_name] = nn.ModuleDict()
+        self.lora_B[adapter_name] = nn.ModuleDict()
+        for i in range(self.num_experts):
+            expert_key = f"expert_{i}"
+            expert_name = f"{adapter_name}_expert_{i}"
+            self.lora_A[adapter_name][expert_key] = nn.Linear(self.in_features, expert_rank, bias=False)
+            self.lora_B[adapter_name][expert_key] = nn.Linear(expert_rank, self.out_features, bias=lora_bias)
+            self.r[expert_name] = expert_rank
+            self.lora_alpha[expert_name] = expert_alpha
+            self.lora_bias[expert_name] = lora_bias
+            self.lora_dropout.update(nn.ModuleDict({expert_name: lora_dropout_layer}))
+            if use_rslora:
+                self.scaling[expert_name] = expert_alpha / math.sqrt(expert_rank)
+            else:
+                self.scaling[expert_name] = expert_alpha / expert_rank
+
+        self.lora_bias[adapter_name] = lora_bias
+        self.r[adapter_name] = expert_rank
+        self.lora_alpha[adapter_name] = expert_alpha
+        self.use_dora[adapter_name] = False
+
+        if init_lora_weights == "eva":
+            for i in range(self.num_experts):
+                nn.init.zeros_(self.lora_B[adapter_name][f"expert_{i}"].weight)
+        elif init_lora_weights:
+            for i in range(self.num_experts):
+                expert_A = self.lora_A[adapter_name][f"expert_{i}"]
+                expert_B = self.lora_B[adapter_name][f"expert_{i}"]
+                if init_lora_weights is True:
+                    nn.init.kaiming_uniform_(expert_A.weight, a=math.sqrt(5))
+                elif init_lora_weights.lower() == "gaussian":
+                    nn.init.normal_(expert_A.weight, std=1 / expert_rank)
+                else:
+                    raise ValueError(f"Unknown initialization {init_lora_weights=}")
+                nn.init.zeros_(expert_B.weight)
+                if lora_bias:
+                    nn.init.zeros_(expert_B.bias)
+
+        self._move_adapter_to_device_of_base_layer(adapter_name)
+        self.set_adapter(self.active_adapters)
+
     def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
         """
         Merge the active adapter weights into the base weights
@@ -1137,34 +1240,57 @@ class Linear(nn.Module, LoraLayer):
             if moe_type == "token_wise":
                 result = self.base_layer(x, *args, **kwargs)
                 torch_result_dtype = result.dtype
-                activate_adapter_name = self.active_adapters[0]
-                
-                B, L, E = x.shape
-                route_weight = self.infer_route_weight(x, result.dtype)
 
-                # (sparse dispatch: gather only the tokens routed to each expert
-                # instead of running every expert over the full sequence and zeroing out
-                # the unselected tokens' contribution)
-                x_flat = x.reshape(B * L, -1)
-                route_weight_flat = route_weight.reshape(B * L, self.num_experts)
-                result = result.reshape(B * L, -1)
+                # A "root" adapter owns a router (self.lora_route). Any other active
+                # adapter whose moe_companion_of points at that root (see
+                # update_moe_companion_layer) shares its routing decision and
+                # contributes an extra per-expert LoRA on top of the root's experts --
+                # e.g. a stage-2 refinement nested on top of frozen stage-1 experts.
+                root_adapters = [a for a in self.active_adapters if a in self.lora_route]
+                if len(root_adapters) > 1:
+                    raise ValueError(
+                        f"Multiple active MoE router adapters {root_adapters} on the same layer "
+                        "are not supported."
+                    )
 
-                for i in range(self.num_experts):
-                    expert_name = f"{activate_adapter_name}_expert_{i}"
-                    lora_A = self.lora_A[activate_adapter_name][f"expert_{i}"]
-                    lora_B = self.lora_B[activate_adapter_name][f"expert_{i}"]
-                    scaling = self.scaling[expert_name]
-                    dropout = self.lora_dropout[expert_name]
+                if root_adapters:
+                    activate_adapter_name = root_adapters[0]
+                    companion_adapters = [
+                        a for a in self.active_adapters
+                        if self.moe_companion_of.get(a) == activate_adapter_name
+                    ]
+                    expert_adapter_names = [activate_adapter_name] + companion_adapters
 
-                    weight_i = route_weight_flat[:, i]
-                    idx = weight_i.nonzero(as_tuple=True)[0]
+                    B, L, E = x.shape
+                    route_weight = self.infer_route_weight(x, result.dtype, activate_adapter_name)
 
-                    selected_x = x_flat.index_select(0, idx)
-                    expert_out = lora_B(lora_A(dropout(selected_x))) * scaling
-                    expert_out = expert_out * weight_i.index_select(0, idx).unsqueeze(-1)
-                    result.index_add_(0, idx, expert_out.to(result.dtype))
+                    # (sparse dispatch: gather only the tokens routed to each expert
+                    # instead of running every expert over the full sequence and zeroing out
+                    # the unselected tokens' contribution)
+                    x_flat = x.reshape(B * L, -1)
+                    route_weight_flat = route_weight.reshape(B * L, self.num_experts)
+                    result = result.reshape(B * L, -1)
 
-                result = result.reshape(B, L, -1).to(torch_result_dtype)
+                    for i in range(self.num_experts):
+                        weight_i = route_weight_flat[:, i]
+                        idx = weight_i.nonzero(as_tuple=True)[0]
+                        selected_x = x_flat.index_select(0, idx)
+                        gate = weight_i.index_select(0, idx).unsqueeze(-1)
+
+                        for adapter_name in expert_adapter_names:
+                            expert_name = f"{adapter_name}_expert_{i}"
+                            lora_A = self.lora_A[adapter_name][f"expert_{i}"]
+                            lora_B = self.lora_B[adapter_name][f"expert_{i}"]
+                            scaling = self.scaling[expert_name]
+                            dropout = self.lora_dropout[expert_name]
+
+                            expert_out = lora_B(lora_A(dropout(selected_x))) * scaling
+                            expert_out = expert_out * gate
+                            result.index_add_(0, idx, expert_out.to(result.dtype))
+
+                    result = result.reshape(B, L, -1).to(torch_result_dtype)
+                else:
+                    result = result.to(torch_result_dtype)
 
             elif moe_type == "sequence_wise":
                 result = self.base_layer(x, *args, **kwargs)
@@ -1198,8 +1324,8 @@ class Linear(nn.Module, LoraLayer):
                     
         return result
     
-    def infer_route_weight(self, x, dtype):
-        activate_adapter_name = self.active_adapters[0]
+    def infer_route_weight(self, x, dtype, adapter_name=None):
+        activate_adapter_name = adapter_name if adapter_name is not None else self.active_adapters[0]
 
         # Cleared unconditionally so a stale sample from a previous stochastic forward can't
         # leak into rl_utils.save_actions_batched / compute_routing_log_prob* on a later

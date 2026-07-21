@@ -1,5 +1,5 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
-lora_path: "runs/train_moe_lora_stage1overfit_identity/20260715-015206/ckpt/30000"
+lora_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128-disjoint/20260717-082734/ckpt/125000"
 dtype: "bfloat16"
 
 model:
@@ -8,39 +8,41 @@ model:
   latent_lora: false
   use_sep: false
   use_type_embedding: false
-  train_route_only: true
+  train_route_only: false
 
 train:
   batch_size: 1
-  accumulate_grad_batches: 8
+  accumulate_grad_batches: 64
   dataloader_workers: 4
   save_interval: 5000
   sample_interval: 5000
-  max_steps: 30000
+  max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage2combine-identity-1gpu"
+  save_path: "runs/task-specific-moe-lora-stage2combine-identity"
 
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/datasets/AnyEdit/train.json"
-    root_path: "/data/datasets"
+    json_path: "/data/sd/datasets/AnyEdit/train.json"
+    root_path: "/data/sd/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
     padding: 8
     drop_text_prob: 0.1
     drop_image_prob: 0.1
-    specific_task: ["add", "remove", "replace", "resize"]
+    specific_task: ["resize"]
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine-identity-1gpu"
+    run_name: "task-specific-moe-lora-stage2combine-identity"
 
-  # ── Router-level GRPO, reward from EditScore-8B (src/train/grpo_rollout.py) ────────────
-  # Present -> training_step calls grpo_step (supervised loss + GRPO term) instead of the
+  # ── Router-level GRPO, reward from EditScore-8B (src/train/router_grpo.py) ────────────
+  # rl_coeff > 0 -> training_step calls rl_step (supervised loss + GRPO term) instead of the
   # plain supervised step(). RL always uses free routing, bypassing task_expert_map below
-  # (fixed routing and router-exploration are contradictory) -- see grpo_step's docstring.
+  # (fixed routing and router-exploration are contradictory) -- see rl_step's docstring.
+  # This algorithm's policy gradient only ever updates lora_route (the router), regardless of
+  # model.train_route_only above.
   rl:
     num_rollouts: 8              # G — stochastic routing samples per input
                                  # Lower -> faster/cheaper steps, higher-variance advantage estimate
@@ -58,7 +60,8 @@ train:
       type: "editscore"
       model_id: "ckpt/Qwen3-VL-8B-Instruct"
       lora_id: "ckpt/EditScore-Qwen3-VL-8B-Instruct"
-      device: "cuda:0"           # separate device from the policy model if VRAM allows
+      device: "cuda:1"           # separate device from the policy model -- now actually honored,
+                                  # see src/train/editscore_reward.py's _pin_qwen3vl_device
       dtype: "bfloat16"
       k_ensemble: 1               # Avg@K judge passes per image (paper's self-ensemble); raise
                                    # once the reward signal itself is validated (cost multiplies by K)
@@ -79,6 +82,16 @@ train:
     route_input_dim: 768
     routing_choice: "tc"
     routing_act: "identity"
+
+  stage2_lora_config:
+    r: 4                    # unused for MoE-companion layers, kept for LoraConfig's schema
+    lora_alpha: 4
+    init_lora_weights: "gaussian"
+    target_modules: "(.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.proj_out)"
+    moe_companion_of: "default"
+    num_experts: 4           # must equal stage-1's num_experts (enforced at build time)
+    expert_rank: 8            # stage-2's own, typically smaller, per-expert rank
+    expert_alpha: 8
 
   optimizer:
     type: "Prodigy"
