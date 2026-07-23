@@ -13,12 +13,12 @@ model:
 train:
   batch_size: 1
   accumulate_grad_batches: 64
-  dataloader_workers: 4
+  dataloader_workers: 2
   save_interval: 5000
   sample_interval: 5000
   max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage2combine-identity"
+  save_path: "runs/task-specific-moe-lora-stage2combine-identity-r128-disjoint"
 
   condition_type: "edit"
   dataset:
@@ -35,7 +35,7 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine-identity"
+    run_name: "task-specific-moe-lora-stage2combine-identity-r128-disjoint"
 
   # ── Router-level GRPO, reward from EditScore-8B (src/train/router_grpo.py) ────────────
   # rl_coeff > 0 -> training_step calls rl_step (supervised loss + GRPO term) instead of the
