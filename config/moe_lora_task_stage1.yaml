@@ -19,24 +19,24 @@ train:
   sample_interval: 5000
   max_steps: 500000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128-disjoint"
+  save_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128-resize"
 
   condition_type: "edit"
   dataset:
     type: "any_edit"
-    json_path: "/data/sd/datasets/AnyEdit/train.json"
-    root_path: "/data/sd/datasets"
+    json_path: "/data/datasets/AnyEdit/train.json"
+    root_path: "/data/datasets"
     condition_size: 512
     target_size: 512
     image_size: 512
     padding: 8
     drop_text_prob: 0.1
     drop_image_prob: 0.1
-    specific_task: ["add", "remove"]
+    specific_task: ["resize"]
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage1overfit-identity-r128-disjoint"
+    run_name: "task-specific-moe-lora-stage1overfit-identity-r128-resize"
 
   lora_config:
     r: 128
@@ -51,12 +51,8 @@ train:
     routing_choice: "tc"
     routing_act: "identity"
 
-  task_expert_map:
-    add: [0, 1]
-    remove: [2, 3]
-
   optimizer:
     type: "AdamW"
     params:
       lr: 0.0001
-      weight_decay: 0.0
+      weight_decay: 0.01

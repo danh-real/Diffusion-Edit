@@ -162,30 +162,36 @@ class TrainingCallback(L.Callback):
 
         file_name = [
             # "assets/coffee.png",
-            "assets/coffee.png",
-            "assets/coffee.png",
+            # "assets/coffee.png",
+            # "assets/coffee.png",
             # "assets/coffee.png",
             # "assets/clock.jpg",
             # "assets/book.jpg",
-            "assets/monalisa.jpg",
+            # "assets/monalisa.jpg",
             # "assets/oranges.jpg",
             # "assets/penguin.jpg",
             # "assets/vase.jpg",
             # "assets/room_corner.jpg",
+            "assets/bowl.jpg",
+            "assets/dog.jpg",
+            "assets/panda.jpg",
         ]
 
         test_instruction = [
             # "Make the image look like it's from an ancient Egyptian mural.",
-            'get rid of the coffee bean.',
-            'remove the cup.',
+            # 'get rid of the coffee bean.',
+            # 'remove the cup.',
             # "Change it to look like it's in the style of an impasto painting.",
             # "Make this photo look like a comic book",
             # "Give this the look of a traditional Japanese woodblock print.",
-            'delete the woman',
+            # 'delete the woman',
             # "Change the image into a watercolor painting.",
             # "Make it black and white.",
             # "Make it pop art.",
             # 'the sofa is leather, and the wall is black',
+            "minify the bowl of fruit",
+            "minify the dog",
+            "minify the panda bear"
         ]
 
         pl_module.flux_kontext_pipe.transformer.eval()

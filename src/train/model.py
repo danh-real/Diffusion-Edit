@@ -150,11 +150,17 @@ class OminiModel(L.LightningModule):
             self.transformer.add_adapter(LoraConfig(**lora_config))
 
         if stage2_lora_config is not None:
+            # `freeze_stage1` (default True) decides whether stage 1's "default" adapter
+            # keeps training alongside stage 2 or is frozen so only "stage2" learns. It's
+            # our own knob, not a LoraConfig field, so pop it off a copy before building
+            # the config (LoraConfig would reject the unknown kwarg).
+            stage2_cfg = dict(stage2_lora_config)
+            freeze_stage1 = stage2_cfg.pop("freeze_stage1", True)
             # stage2_lora_config's `moe_companion_of` (see LoraConfig /
             # Linear.update_moe_companion_layer) should name the base adapter
-            # ("default") so stage 2 nests a small extra LoRA on top of each frozen
-            # stage-1 expert instead of getting its own router.
-            self.transformer.add_adapter(LoraConfig(**stage2_lora_config), adapter_name="stage2")
+            # ("default") so stage 2 nests a small extra LoRA on top of each stage-1
+            # expert instead of getting its own router.
+            self.transformer.add_adapter(LoraConfig(**stage2_cfg), adapter_name="stage2")
             # add_adapter() above leaves only "stage2" active; MoE layers need both
             # active simultaneously so moe_forward can pair stage2's per-expert LoRA
             # with "default"'s routing decision (see moe_forward's root_adapters /
@@ -164,15 +170,17 @@ class OminiModel(L.LightningModule):
             self.transformer.set_adapter(["default", "stage2"])
             # set_adapter() unconditionally re-enables requires_grad on every active
             # adapter's lora_A/lora_B (peft's BaseTunerLayer.set_adapter), including
-            # "default"'s -- recursing into its nested per-expert ModuleDicts too. Undo
-            # that for "default" (and its router/tau) so only "stage2" ends up in the
-            # `requires_grad` snapshot taken below.
-            for module in self.transformer.modules():
-                if isinstance(module, BaseTunerLayer):
-                    for adapter_dict_name in ("lora_A", "lora_B", "lora_route", "tau"):
-                        adapter_dict = getattr(module, adapter_dict_name, {})
-                        if "default" in adapter_dict:
-                            adapter_dict["default"].requires_grad_(False)
+            # "default"'s -- recursing into its nested per-expert ModuleDicts too. When
+            # freeze_stage1 is set, undo that for "default" (and its tau) so only "stage2"
+            # ends up in the `requires_grad` snapshot taken below; otherwise leave stage 1
+            # trainable so both adapters keep learning.
+            if freeze_stage1:
+                for module in self.transformer.modules():
+                    if isinstance(module, BaseTunerLayer):
+                        for adapter_dict_name in ("lora_A", "lora_B", "tau"):
+                            adapter_dict = getattr(module, adapter_dict_name, {})
+                            if "default" in adapter_dict:
+                                adapter_dict["default"].requires_grad_(False)
 
         lora_layers = filter(
             lambda p: p[1].requires_grad, self.transformer.named_parameters()
@@ -183,9 +191,21 @@ class OminiModel(L.LightningModule):
         # get_peft_model_state_dict defaults to adapter_name="default" and only returns
         # that one adapter's keys -- with a stage-2 companion adapter also loaded, its
         # weights would otherwise be silently dropped from the checkpoint.
-        lora_state_dict = get_peft_model_state_dict(self.transformer, adapter_name="default")
+        #
+        # It also strips the adapter name from the keys it returns, which makes merging two
+        # adapters' state dicts unsafe: on a layer where both "default" and "stage2" hold a
+        # plain (non-MoE) LoRA, both collapse to the same "...lora_A.weight" key and the
+        # update() below would overwrite stage 1's tensor with stage 2's. Re-tag both with
+        # _remap_saved_state_dict so every key matches a real model key and stays distinct.
+        # (Loading is unaffected: _remap_saved_state_dict passes already-tagged keys through,
+        # so older, untagged stage-1-only checkpoints still load as before.)
+        def _tagged_state_dict(adapter_name: str):
+            state_dict = get_peft_model_state_dict(self.transformer, adapter_name=adapter_name)
+            return _remap_saved_state_dict(state_dict, self.transformer, adapter_name=adapter_name)
+
+        lora_state_dict = _tagged_state_dict("default")
         if "stage2" in self.transformer.peft_config:
-            lora_state_dict.update(get_peft_model_state_dict(self.transformer, adapter_name="stage2"))
+            lora_state_dict.update(_tagged_state_dict("stage2"))
 
         type(self.flux_kontext_pipe).save_lora_weights(
             save_directory=path,

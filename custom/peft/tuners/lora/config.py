@@ -852,10 +852,12 @@ class LoraConfig(PeftConfig):
                 "e.g. a frozen stage-1 adapter) that this adapter nests under. When set, "
                 "this adapter does not get its own router: instead it adds one extra "
                 "per-expert LoRA(A,B) pair per expert of `moe_companion_of`, reusing that "
-                "adapter's routing decision at each forward pass. Only meaningful on MoE-LoRA "
-                "layers (ff.net / proj_out); ignored elsewhere. `num_experts` must match the "
+                "adapter's routing decision at each forward pass. `num_experts` must match the "
                 "base adapter's; `expert_rank`/`expert_alpha` may differ (e.g. a smaller rank "
-                "for a lightweight stage-2 refinement)."
+                "for a lightweight stage-2 refinement). On MoE-LoRA layers (ff.net / proj_out) "
+                "this nesting is all that happens; on any other targeted layer the adapter "
+                "falls back to a plain LoRA of rank `r`, added in parallel with the base "
+                "adapter's LoRA there."
             )
         },
     )

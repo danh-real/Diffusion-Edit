@@ -167,14 +167,14 @@ class LoraLayer(BaseTunerLayer):
         **kwargs,
     ) -> None:
         moe_companion_of = getattr(config, "moe_companion_of", None)
-        if moe_companion_of is not None:
-            if not getattr(self, "moe_lora", False):
-                raise ValueError(
-                    f"Adapter {adapter_name!r} has moe_companion_of={moe_companion_of!r}, but this layer "
-                    f"({kwargs.get('target_name', '')!r}) is not a MoE-LoRA layer."
-                )
+        if moe_companion_of is not None and getattr(self, "moe_lora", False):
             self.update_moe_companion_layer(adapter_name, r, lora_alpha, config)
             return
+        # A companion adapter may also target non-MoE layers (attn/norm/proj_mlp/...), where
+        # there are no experts to nest under: it falls through to the plain-LoRA path below,
+        # at config.r rather than config.expert_rank. That gives an ordinary low-rank LoRA
+        # running in parallel with the (frozen) base adapter's LoRA on that layer, since
+        # forward() sums the contribution of every active adapter.
 
         # collect the kwargs
         lora_dropout = config.lora_dropout
@@ -808,8 +808,21 @@ class Linear(nn.Module, LoraLayer):
         self.blc_alpha = kwargs.get("blc_alpha", 0.0)
         self.blc_weight = kwargs.get("blc_weight", 0.0)
 
-        if "ff.net" in kwargs["target_name"] or "proj_out" in kwargs["target_name"]:
-            self.moe_lora = True
+        self.moe_lora = "ff.net" in kwargs["target_name"] or "proj_out" in kwargs["target_name"]
+
+        if getattr(config, "moe_companion_of", None) is not None:
+            # A companion adapter never spawns a router/expert set of its own -- it only ever
+            # nests under an existing MoE adapter. Reaching this branch means the layer is
+            # being created from scratch for the companion, i.e. the base adapter never
+            # targeted it: update_layer dispatches to plain LoRA for non-MoE layers, and
+            # update_moe_companion_layer raises a clear "no router found" error for MoE ones.
+            self.update_layer(
+                adapter_name,
+                r,
+                lora_alpha=lora_alpha,
+                config=config,
+            )
+        elif self.moe_lora:
             self.update_moe_layer(
                 adapter_name,
                 r,
@@ -817,8 +830,6 @@ class Linear(nn.Module, LoraLayer):
                 config=config,
             )
         else:
-            self.moe_lora = False
-
             self.update_layer(
                 adapter_name,
                 r,

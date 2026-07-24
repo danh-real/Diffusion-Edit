@@ -1,5 +1,6 @@
 flux_path: "ckpt/FLUX.1-Kontext-dev"
-lora_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128-disjoint/20260717-082734/ckpt/125000"
+# lora_path: "runs/task-specific-moe-lora-stage1overfit-identity-r128-disjoint/20260717-082734/ckpt/125000"
+lora_path: null
 dtype: "bfloat16"
 
 model:
@@ -13,12 +14,12 @@ model:
 train:
   batch_size: 1
   accumulate_grad_batches: 64
-  dataloader_workers: 2
-  save_interval: 5000
-  sample_interval: 5000
+  dataloader_workers: 4
+  save_interval: 1000
+  sample_interval: 1000
   max_steps: 100000
   gradient_checkpointing: true
-  save_path: "runs/task-specific-moe-lora-stage2combine-identity-r128-disjoint"
+  save_path: "runs/task-specific-moe-lora-bothstage-identity-r128-resize"
 
   condition_type: "edit"
   dataset:
@@ -35,7 +36,7 @@ train:
 
   wandb:
     project: "Edit"
-    run_name: "task-specific-moe-lora-stage2combine-identity-r128-disjoint"
+    run_name: "task-specific-moe-lora-bothstage-identity-r128-resize"
 
   # ── Router-level GRPO, reward from EditScore-8B (src/train/router_grpo.py) ────────────
   # rl_coeff > 0 -> training_step calls rl_step (supervised loss + GRPO term) instead of the
@@ -84,19 +85,26 @@ train:
     routing_act: "identity"
 
   stage2_lora_config:
-    r: 4                    # unused for MoE-companion layers, kept for LoraConfig's schema
-    lora_alpha: 4
+    # freeze_stage1: true  -> stage 1's "default" adapter is frozen; only "stage2" trains.
+    # freeze_stage1: false -> stage 1 keeps training alongside stage 2 (joint fine-tune).
+    freeze_stage1: false
+    # target_modules matches stage 1's exactly, so stage 2 refines every layer stage 1
+    # touched. The two ranks below cover the two kinds of layer this hits:
+    #   - MoE layers (ff.net.2 / proj_out): expert_rank/expert_alpha size one extra
+    #     per-expert LoRA nested on each frozen stage-1 expert, sharing its router.
+    #   - every other layer: r/lora_alpha size a plain LoRA running in parallel with
+    #     stage 1's frozen r=128 LoRA there.
+    r: 32
+    lora_alpha: 32
     init_lora_weights: "gaussian"
-    target_modules: "(.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.proj_out)"
+    target_modules: "(.*x_embedder|.*(?<!single_)transformer_blocks\\.[0-9]+\\.norm1\\.linear|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_k|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_q|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_v|.*(?<!single_)transformer_blocks\\.[0-9]+\\.attn\\.to_out\\.0|.*(?<!single_)transformer_blocks\\.[0-9]+\\.ff\\.net\\.2|.*single_transformer_blocks\\.[0-9]+\\.norm\\.linear|.*single_transformer_blocks\\.[0-9]+\\.proj_mlp|.*single_transformer_blocks\\.[0-9]+\\.proj_out|.*single_transformer_blocks\\.[0-9]+\\.attn.to_k|.*single_transformer_blocks\\.[0-9]+\\.attn.to_q|.*single_transformer_blocks\\.[0-9]+\\.attn.to_v|.*single_transformer_blocks\\.[0-9]+\\.attn.to_out)"
     moe_companion_of: "default"
     num_experts: 4           # must equal stage-1's num_experts (enforced at build time)
     expert_rank: 8            # stage-2's own, typically smaller, per-expert rank
     expert_alpha: 8
 
   optimizer:
-    type: "Prodigy"
+    type: "AdamW"
     params:
-      lr: 0.1
-      use_bias_correction: true
-      safeguard_warmup: true
+      lr: 0.0001
       weight_decay: 0.01
